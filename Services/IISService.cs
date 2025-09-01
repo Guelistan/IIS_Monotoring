@@ -249,6 +249,84 @@ namespace AppManager.Services
                 return info;
             });
         }
+
+        public async Task<List<IISAppInfo>> GetAllApplicationsAsync()
+        {
+            return await Task.Run(() =>
+            {
+                var result = new List<IISAppInfo>();
+                try
+                {
+                    using (var serverManager = new ServerManager())
+                    {
+                        foreach (var site in serverManager.Sites)
+                        {
+                            foreach (var app in site.Applications)
+                            {
+                                result.Add(new IISAppInfo
+                                {
+                                    SiteName = site.Name,
+                                    AppPath = app.Path,
+                                    AppPoolName = app.ApplicationPoolName
+                                });
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Fehler beim Abrufen der IIS Anwendungen: {ex.Message}");
+                }
+                // Doppelte entfernen
+                return result
+                    .GroupBy(x => new { x.SiteName, x.AppPath, x.AppPoolName })
+                    .Select(g => g.First())
+                    .ToList();
+            });
+        }
+
+        public async Task<bool> RecycleAppPoolAsync(string appPoolName)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    using (var serverManager = new ServerManager())
+                    {
+                        var appPool = serverManager.ApplicationPools[appPoolName];
+                        if (appPool != null)
+                        {
+                            appPool.Recycle();
+                            Console.WriteLine($"✅ IIS Application Pool '{appPoolName}' recycelt");
+                            return true;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"❌ IIS Application Pool '{appPoolName}' nicht gefunden");
+                            return false;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Fehler beim Recyceln des IIS Application Pools '{appPoolName}': {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
+        public List<string> GetAllAppPoolNames()
+        {
+            var appPoolNames = new List<string>();
+            using (var serverManager = new ServerManager())
+            {
+                foreach (var appPool in serverManager.ApplicationPools)
+                {
+                    appPoolNames.Add(appPool.Name);
+                }
+            }
+            return appPoolNames;
+        }
     }
 
     public class IISApplicationInfo
@@ -262,5 +340,12 @@ namespace AppManager.Services
         public List<string> SiteBindings { get; set; } = new();
         public bool IsAvailable { get; set; }
         public string ErrorMessage { get; set; } = string.Empty;
+    }
+
+    public class IISAppInfo
+    {
+        public string SiteName { get; set; }
+        public string AppPath { get; set; }
+        public string AppPoolName { get; set; }
     }
 }
