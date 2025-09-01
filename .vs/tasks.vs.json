@@ -1,0 +1,15 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskLabel": "Task-AppManager",
+      "appliesTo": "/",
+      "type": "launch"
+    },
+    {
+      "taskLabel": "Task-Appmanager",
+      "appliesTo": "/",
+      "type": "launch"
+    }
+  ]
+}

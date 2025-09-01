@@ -1,0 +1,42 @@
+@page "/Account/Register"
+@model AppManager.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "Registrieren";
+}
+
+<h2>Registrieren</h2>
+@section Scripts {
+    <script src="your-validation-script.js"></script>
+}
+<div class="alert alert-info" role="alert">
+    Bitte füllen Sie das folgende Formular aus, um ein neues Konto zu erstellen.
+</div>
+<form method="post">
+    <div class="mb-3">
+        <label for="Input.Email" class="form-label">E-Mail</label>
+        <input asp-for="Input.Email" class="form-control" placeholder="ihre@email.de" />
+        <span asp-validation-for="Input.Email" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Benutzername</label>
+        <input asp-for="Input.Name" class="form-control" placeholder="z.B. gülistan" />
+        <small class="form-text text-muted">Dieser Name wird für die Anmeldung verwendet</small>
+        <span asp-validation-for="Input.Name" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Vorname</label>
+        <input asp-for="Input.Vorname" class="form-control" placeholder="z.B. Gülistan" />
+        <span asp-validation-for="Input.Vorname" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Abteilung</label>
+        <input asp-for="Input.Abteilung" class="form-control" placeholder="z.B. IT" />
+        <span asp-validation-for="Input.Abteilung" class="text-danger"></span>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Passwort</label>
+        <input asp-for="Input.Passwort" type="password" class="form-control" />
+        <span asp-validation-for="Input.Passwort" class="text-danger"></span>
+    </div>
+    <button type="submit" class="btn btn-primary">Registrieren</button>
+</form>

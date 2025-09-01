@@ -1,0 +1,8 @@
+https://github.com/Guelistan/Appmanager.git
+
+git add .
+git commit -m "commit"
+
+git remote add origin https://github.com/<USERNAME>/<REPO>.git
+
+git push -u origin main

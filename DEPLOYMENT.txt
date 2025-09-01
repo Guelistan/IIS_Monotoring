@@ -1,0 +1,167 @@
+# AppManager Deployment Guide 🚀
+
+## Deployment-Optionen für Ihre ASP.NET Core Web-Anwendung
+
+### 1. **Windows Server + IIS Deployment** 🖥️
+
+**Vorraussetzungen:**
+- Windows Server mit IIS
+- .NET 8.0 Runtime installiert
+- SQL Server oder SQL Server Express
+
+**Schritte:**
+1. Kopieren Sie den `publish/` Ordner auf den Zielserver
+2. Erstellen Sie eine neue IIS-Site
+3. Setzen Sie den Application Pool auf ".NET CLR Version: No Managed Code"
+4. Passen Sie die Connection String in `appsettings.Production.json` an
+5. Erstellen Sie die Datenbank mit: `dotnet AppManager.dll`
+
+**Connection String für Production:**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=SERVERNAME;Database=APPUSER;Integrated Security=true;TrustServerCertificate=true;"
+  }
+}
+```
+
+---
+
+### 2. **Docker Container** 🐳
+
+**Dockerfile erstellt!** ✅
+
+**Build und Run:**
+```bash
+# Docker Image erstellen
+docker build -t appmanager .
+
+# Container starten
+docker run -d -p 8080:80 -p 8443:443 --name appmanager-app appmanager
+```
+
+**Mit Docker Compose:**
+```yaml
+version: '3.8'
+services:
+  appmanager:
+    build: .
+    ports:
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    volumes:
+      - ./data:/app/data
+```
+
+---
+
+### 3. **Azure App Service** ☁️
+
+**Einfaches Cloud-Deployment:**
+
+1. **Azure CLI Installation**
+2. **Deployment-Befehle:**
+```bash
+# Login
+az login
+
+# App Service erstellen
+az webapp create --resource-group MyResourceGroup --plan MyAppServicePlan --name MyAppManagerApp --runtime "DOTNETCORE|8.0"
+
+# Code deployen
+az webapp deployment source config-zip --resource-group MyResourceGroup --name MyAppManagerApp --src publish.zip
+```
+
+**Oder über Visual Studio:**
+- Rechtsklick auf Projekt → Publish → Azure → App Service
+
+---
+
+### 4. **Self-Hosted (Eigener Server)** 💻
+
+**Für Linux/Ubuntu Server:**
+```bash
+# .NET 8.0 Runtime installieren
+wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update
+sudo apt-get install -y aspnetcore-runtime-8.0
+
+# App starten
+sudo dotnet AppManager.dll --urls "http://0.0.0.0:80;https://0.0.0.0:443"
+```
+
+**Als Windows Service:**
+```bash
+# Service installieren
+sc create "AppManager" binPath="C:\Path\To\AppManager.exe"
+sc start "AppManager"
+```
+
+---
+
+### 5. **GitHub Pages + Static Export** 📄
+
+**Für statische Websites (eingeschränkt):**
+- Nur möglich mit Blazor WebAssembly
+- Erfordert Umschreibung der App
+
+---
+
+## **Datenbank-Konfiguration** 🗄️
+
+### **Für Production (SQL Server):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=tcp:SERVERNAME,1433;Database=APPUSER;User ID=username;Password=password;Encrypt=true;TrustServerCertificate=false;"
+  }
+}
+```
+
+### **Für Testing (SQLite):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=appmanager.db"
+  }
+}
+```
+
+---
+
+## **Empfehlung für Anfänger** ⭐
+
+1. **Lokaler Test:** `publish/` Ordner auf Windows-Maschine kopieren
+2. **Cloud-Deployment:** Azure App Service (einfachste Option)
+3. **Container:** Docker für erfahrene Nutzer
+
+---
+
+## **Sicherheits-Checklist** 🔒
+
+- [ ] Connection Strings mit echten Credentials
+- [ ] HTTPS aktiviert
+- [ ] Authentication konfiguriert
+- [ ] Firewall-Regeln gesetzt
+- [ ] SSL-Zertifikat installiert
+- [ ] Admin-Passwörter geändert
+
+---
+
+## **Monitoring & Logs** 📊
+
+**Log-Konfiguration in appsettings.Production.json:**
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.AspNetCore": "Warning",
+      "AppManager": "Information"
+    }
+  }
+}
+```

@@ -1,0 +1,215 @@
+<!-- # IIS Server Deployment Guide für AppManager
+# Zentrales Application Management System
+
+## Server-Vorbereitung 🛠️
+
+### 1. Windows Server Anforderungen
+- Windows Server 2019/2022 oder Windows 10/11 Pro
+- IIS mit ASP.NET Core Module
+- .NET 8.0 Runtime
+- SQL Server oder SQL Server Express
+
+### 2. IIS Features aktivieren
+```powershell
+# PowerShell als Administrator ausführen:
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServer
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-CommonHttpFeatures
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-CommonHttpFeatures
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-HttpLogging
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-Security
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-RequestFiltering
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-StaticContent
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-DefaultDocument
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-DirectoryBrowsing
+Enable-WindowsOptionalFeature -Online -FeatureName IIS-ASPNET45
+```
+
+### 3. ASP.NET Core Hosting Bundle installieren
+Download von: https://dotnet.microsoft.com/download/dotnet/8.0
+→ "ASP.NET Core Runtime 8.0.x - Windows Hosting Bundle"
+
+## Deployment Schritte 📦
+
+### Schritt 1: AppManager auf Server kopieren
+```powershell
+# Publish-Ordner auf Server kopieren nach:
+C:\inetpub\wwwroot\AppManager\
+```
+
+### Schritt 2: IIS Website erstellen
+```powershell
+# IIS Manager öffnen → Neue Site hinzufügen:
+# Name: AppManager
+# Pfad: C:\inetpub\wwwroot\AppManager
+# Port: 80 (oder 8080 für Test)
+```
+
+### Schritt 3: Application Pool konfigurieren
+```
+Application Pool Settings:
+- Name: AppManagerPool
+- .NET CLR Version: "No Managed Code"
+- Managed Pipeline Mode: Integrated
+- Process Model → Identity: ApplicationPoolIdentity
+```
+
+### Schritt 4: Permissions setzen
+```powershell
+# Dem Application Pool Rechte geben:
+icacls "C:\inetpub\wwwroot\AppManager" /grant "IIS AppPool\AppManagerPool":(OI)(CI)F
+```
+
+## Produktions-Konfiguration ⚙️
+
+### appsettings.Production.json anpassen:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=SERVERNAME\\SQLEXPRESS;Database=APPUSER_PROD;Integrated Security=true;TrustServerCertificate=true;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.AspNetCore": "Warning",
+      "AppManager": "Information"
+    }
+  },
+  "AllowedHosts": "*",
+  "ApplicationSettings": {
+    "ServerMode": true,
+    "AllowRemoteAccess": true,
+    "AdminEmails": ["admin@company.com"]
+  }
+}
+```
+
+## Team-Zugriff konfigurieren 👥
+
+### 1. Netzwerk-Zugriff aktivieren
+```xml
+<!-- web.config anpassen -->
+<configuration>
+  <system.webServer>
+    <aspNetCore processPath="dotnet" arguments=".\AppManager.dll" stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" />
+  </system.webServer>
+</configuration>
+```
+
+### 2. Firewall-Regeln
+```powershell
+# Windows Firewall Regel für HTTP
+New-NetFirewallRule -DisplayName "AppManager HTTP" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow
+
+# Für HTTPS (empfohlen)
+New-NetFirewallRule -DisplayName "AppManager HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow
+```
+
+### 3. SSL-Zertifikat (für HTTPS)
+```powershell
+# Selbst-signiertes Zertifikat für Test:
+New-SelfSignedCertificate -DnsName "appmanager.company.local" -CertStoreLocation "cert:\LocalMachine\My"
+
+# Oder echtes Zertifikat für Production
+```
+
+## Datenbank Setup 🗄️
+
+### SQL Server Konfiguration
+```sql
+-- Neue Datenbank erstellen
+CREATE DATABASE APPUSER_PROD;
+
+-- Benutzer für IIS Application Pool
+USE APPUSER_PROD;
+CREATE LOGIN [IIS APPPOOL\AppManagerPool] FROM WINDOWS;
+CREATE USER [AppManagerPoolUser] FOR LOGIN [IIS APPPOOL\AppManagerPool];
+ALTER ROLE db_owner ADD MEMBER [AppManagerPoolUser];
+```
+
+## Team-Access URLs 🌐
+
+Nach dem Setup können Ihre Kollegen zugreifen über:
+```
+Intern: http://SERVER-NAME/
+Oder:   http://SERVER-IP/
+HTTPS:  https://SERVER-NAME/ (mit SSL)
+```
+
+## Sicherheits-Features für Server-Betrieb 🔒
+
+### 1. Admin-Only Bereiche schützen
+```csharp
+// In Program.cs bereits vorhanden:
+[Authorize(Roles = "Admin,SuperAdmin")]
+public class AdminController : Controller
+```
+
+### 2. IP-Beschränkungen (optional)
+```xml
+<!-- web.config für IP-Filter -->
+<system.webServer>
+  <security>
+    <ipSecurity allowUnlisted="false">
+      <add allowed="true" ipAddress="192.168.1.0" subnetMask="255.255.255.0" />
+    </ipSecurity>
+  </security>
+</system.webServer>
+```
+
+### 3. Active Directory Integration
+```json
+{
+  "ActiveDirectory": {
+    "Domain": "COMPANY.LOCAL",
+    "LdapPath": "LDAP://DC=company,DC=local"
+  }
+}
+```
+
+## Monitoring & Wartung 📊
+
+### 1. Logging aktivieren
+```
+Log-Pfad: C:\inetpub\wwwroot\AppManager\logs\
+```
+
+### 2. Performance Counter
+```
+- CPU Usage
+- Memory Usage  
+- Active Connections
+- Response Time
+```
+
+### 3. Backup-Strategie
+```
+- Wöchentlich: Vollbackup
+- Täglich: Datenbank-Backup
+- AppManager Files: Code-Repository
+```
+
+## Kollegen-Schulung 👨‍💼
+
+### Benutzer-Rollen:
+1. **SuperAdmin**: Alle Rechte (Sie)
+2. **Admin**: App-Management (Team-Leads)
+3. **User**: Nur eigene Apps starten (Entwickler)
+
+### Typische Workflows:
+1. **App hinzufügen**: Admin fügt neue Anwendung hinzu
+2. **Berechtigung geben**: Admin weist App Benutzern zu  
+3. **App starten**: Benutzer startet über Web-Interface
+4. **Monitoring**: Alle sehen Status ihrer Apps
+
+## Fazit 🎯
+
+**Für Ihren Server-Use-Case ist das perfekt!**
+- ✅ Zentrale App-Verwaltung
+- ✅ Team-Zugriff über Browser
+- ✅ IIS-Integration für Stabilität
+- ✅ Windows-native Lösung
+- ❌ **Kein Docker nötig** - IIS ist besser für Windows Server
+
+Soll ich Ihnen bei einem bestimmten Setup-Schritt helfen?
+ -->

@@ -1,0 +1,66 @@
+@page
+@model AppManager.Pages.Admin.HistoryModel
+@{
+    ViewData["Title"] = "Startverlauf";
+}
+
+<h2>Startverlauf</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Anwendung</th>
+            <th>Benutzer</th>
+            <th>Zeitpunkt</th>
+            <th>Aktion</th>
+            <th>Grund</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.History != null && Model.History.Any())
+        {
+            foreach (var item in Model.History)
+            {
+                <tr>
+                    <td>@(item.Application?.Name ?? "Unbekannt")</td>
+                    <td>
+                        @if (item.User != null)
+                        {
+                            @($"{item.User.Vorname} {item.User.Nachname} ({item.User.UserName})")
+                        }
+                        else
+                        {
+                            <span class="text-muted">System</span>
+                        }
+                    </td>
+                    <td>@item.LaunchTime.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                    <td>
+                        @if (item.Reason.Contains("gestartet"))
+                        {
+                            <span class="badge bg-success">Start</span>
+                        }
+                        else if (item.Reason.Contains("gestoppt"))
+                        {
+                            <span class="badge bg-danger">Stop</span>
+                        }
+                        else if (item.Reason.Contains("neu gestartet") || item.Reason.Contains("Neustart"))
+                        {
+                            <span class="badge bg-warning">Neustart</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Aktion</span>
+                        }
+                    </td>
+                    <td>@item.Reason</td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5">Keine Einträge gefunden.</td>
+            </tr>
+        }
+    </tbody>
+</table>

@@ -1,0 +1,320 @@
+ 🤔🤔
+
+=> 🚀 AppManager – Entwicklerdokumentation
+
+Stand: 27. Juli 2025 – Status: Development-Phase abgeschlossen, UI-Integration in Arbeit
+
+---
+
+=> 1. Projektübersicht
+
+AppManager ist eine ASP.NET Core 9.0 Webanwendung zum Verwalten und Steuern von Server-Anwendungen mit rollenbasiertem Zugriff, Audit-Trail und Administrationsbereich.
+
+=> Hauptfunktionen
+
+ ▶️ Starten, Stoppen & Neustarten von Anwendungen
+ 👥 App-Owner-System zur Verwaltung von Benutzerberechtigungen
+ 🗄️ SQL Server Integration mit Windows-Authentifizierung
+ 🌐 Web-Adminbereich für App- & Benutzerverwaltung
+ 🔐 ASP.NET Core Identity für Authentifizierung & Autorisierung
+
+---
+
+=> 2. Technische Basis
+
+=> Technologien
+
+ Backend: ASP.NET Core 9.0 (ohne Kestrel – Compliance)
+ Frontend: Razor Pages
+ Datenbank: SQL Server mit Entity Framework Core 8.0.11 /Sqlite
+ Authentifizierung: ASP.NET Core Identity + Windows Auth
+ Deployment: IIS mit Windows-Authentifizierung
+
+=> Server-Umgebungen
+
+ Development: LocalDB ('AppManagerTest')
+ Production: 'buhlertal123' Server ('APPUSER')
+ Verbindung: Windows-Authentifizierung ('Trusted_Connection=true')
+
+---
+
+=> 3. Projektstruktur
+
+🏁
+AppManager/
+├── Data/                 => Identity + DbContext
+├── Models/               => Application, AppOwnership, AppLaunchHistory
+├── Services/             => Business-Logik (AppService, ProgramManager)
+├── Pages/                => Razor Pages (Admin, Account, Shared)
+├── TestDataSeeder.cs     => Dev-Daten
+├── ProductionSeeder.cs   => Prod-Daten
+└── Program.cs            => Startup & Konfiguration
+🏁
+
+---
+
+=> 4. Datenmodelle
+
+=> Application
+
+🏁csharp
+public class Application
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public string ExecutablePath { get; set; }
+    public bool IsStarted { get; set; }
+    public bool RestartRequired { get; set; }
+}
+🏁
+
+=> AppUser (erweitert IdentityUser)
+
+🏁csharp
+public class AppUser : IdentityUser
+{
+    public string Vorname { get; set; }
+    public string Nachname { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+🏁
+
+=> AppOwnership
+
+🏁csharp
+public class AppOwnership
+{
+    public Guid Id { get; set; }
+    public string UserId { get; set; }
+    public Guid ApplicationId { get; set; }
+    public string WindowsUsername { get; set; }
+    public string IISAppPoolName { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string CreatedBy { get; set; }
+    public AppUser User { get; set; }
+    public Application Application { get; set; }
+}
+🏁
+
+=> AppLaunchHistory
+
+🏁csharp
+public class AppLaunchHistory
+{
+    public Guid Id { get; set; }
+    public Guid ApplicationId { get; set; }
+    public string UserId { get; set; }
+    public string Action { get; set; } // "Start", "Stop", "Restart"
+    public DateTime LaunchTime { get; set; }
+    public string Reason { get; set; }
+    public Application Application { get; set; }
+    public AppUser User { get; set; }
+}
+🏁
+
+---
+
+=> 5. Razor Pages & API-Referenz
+
+=> Seitenübersicht
+
+| Page                      | Route                          | Autorisation                 | Zweck              | Backend-Model                |
+| ------------------------- | ------------------------------ | ---------------------------- | ------------------ | ---------------------------- |
+| Index                 | '/'                            | None                         | Übersicht          | 'IndexModel'                 |
+| Login                 | '/Account/Login'               | None                         | Benutzeranmeldung  | 'LoginModel'                 |
+| Register              | '/Account/Register'            | None                         | Registrierung      | 'RegisterModel'              |
+| SwitchRole            | '/Account/SwitchRole'          | '[Authorize]'                | Rollenwechsel      | 'SwitchRoleModel'            |
+| Dashboard             | '/Admin/Dashboard'             | '[Authorize]'                | App-Management     | 'DashboardModel'             |
+| Users                 | '/Admin/Users'                 | '[Authorize(Roles="Admin")]' | Benutzerverwaltung | 'UsersModel'                 |
+| AppOwnership          | '/Admin/AppOwnership'          | '[Authorize(Roles="Admin")]' | Berechtigungen     | 'AppOwnershipModel'          |
+| ApplicationManagement | '/Admin/ApplicationManagement' | '[Authorize(Roles="Admin")]' | App-CRUD           | 'ApplicationManagementModel' |
+| History               | '/Admin/History'               | '[Authorize]'                | Audit-Trail        | 'HistoryModel'               |
+| Diagrams              | '/Admin/Diagrams'              | '[Authorize(Roles="Admin")]' | Systemdiagramme    | 'DiagramsModel'              |
+
+---
+
+=> Wichtige Handler
+
+=> Dashboard:
+
+🏁csharp
+public async Task OnGetAsync();
+public async Task<IActionResult> OnPostStartAsync(Guid appId);
+public async Task<IActionResult> OnPostStopAsync(Guid appId);
+public async Task<IActionResult> OnPostRestartAsync(Guid appId);
+🏁
+
+=> Users:
+
+🏁csharp
+public void OnGet();
+public async Task<IActionResult> OnPostAsync();
+public async Task<IActionResult> OnPostEditAsync();
+public async Task<IActionResult> OnPostDeleteAsync(string userId);
+public async Task<IActionResult> OnPostToggleActiveAsync(string userId);
+🏁
+
+=> ApplicationManagement:
+
+🏁csharp
+public async Task OnGetAsync();
+public async Task<IActionResult> OnPostAsync();
+public async Task<IActionResult> OnPostEditAsync();
+public async Task<IActionResult> OnPostDeleteAsync(Guid appId);
+🏁
+
+=> AppOwnership:
+
+🏁csharp
+public async Task OnGetAsync();
+public async Task<IActionResult> OnPostAsync();
+public async Task<IActionResult> OnPostDeleteAsync(Guid ownershipId);
+🏁
+
+=> SwitchRole:
+
+🏁csharp
+public async Task<IActionResult> OnGetAsync();
+public async Task<IActionResult> OnPostToggleAdminModeAsync();
+🏁
+
+---
+
+=> 6. Sicherheitsmodell
+
+=> Rollenmatrix
+
+| Rolle         | Dashboard | Users | AppOwnership | ApplicationManagement | History | Diagrams | SwitchRole |
+| ------------- | :-------: | :---: | :----------: | :-------------------: | :-----: | :------: | :--------: |
+| Anonymous |     ❌     |   ❌   |       ❌      |           ❌           |    ❌    |     ❌    |      ❌     |
+| AppOwner  |     ✅     |   ❌   |       ❌      |           ❌           |    ✅    |     ❌    |      ❌     |
+| Admin     |     ✅     |   ✅   |       ✅      |           ✅           |    ✅    |     ✅    |      ✅     |
+
+=> AdminMode-Claim
+
+🏁csharp
+User.HasClaim("AdminMode", "true"); // Zeigt Admin-Features
+User.HasClaim("AdminMode", "false"); // Zeigt nur Basis-Features
+🏁
+
+---
+
+=> 7. Setup & Deployment
+
+=> Projekt erstellen
+
+🏁powershell
+dotnet new webapp -n AppManager
+cd AppManager
+🏁
+
+=> NuGet-Pakete
+
+🏁powershell
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+dotnet add package Microsoft.EntityFrameworkCore.Tools
+dotnet add package Microsoft.AspNetCore.Identity.UI
+🏁
+
+=> SQL Server LocalDB Setup
+
+🏁powershell
+sqllocaldb create "AppManagerTest" -s
+dotnet ef migrations add "SqlServerMigration"
+dotnet ef database update
+🏁
+
+=> Build & Run
+
+🏁powershell
+taskkill /F /IM AppManager.exe
+dotnet build
+dotnet run --launch-profile http
+🏁
+
+URL: 'http://localhost:5130'
+
+---
+
+=> 8. Seeder
+
+ TestDataSeeder: Dummy-Apps (Paint, Rechner) – nur Development
+ ProductionSeeder: Standard-Windows-Apps (Explorer, Notepad, CMD) – alle Umgebungen
+
+---
+
+=> 9. Connection Strings
+
+Development:
+
+🏁json
+"Server=(localdb)\\MSSQLLocalDB;Database=AppManagerTest;Trusted_Connection=true;"
+🏁
+
+Production:
+
+🏁json
+"Server=buhlertal123;Database=APPUSER;Trusted_Connection=true;"
+🏁
+
+---
+
+=> 10. Status & Roadmap
+
+ [x] Kestrel entfernt
+ [x] SQL Server + Migration
+ [x] App-Owner-System
+ [x] Windows-Authentifizierung
+ [ ] UI für App-Owner-Management
+ [ ] IIS AppPool-Integration
+ [ ] Active Directory Integration
+
+---
+
+=> 11. Debugging & Tipps
+
+Process in use-Fehler:
+
+🏁powershell
+taskkill /F /IM AppManager.exe
+🏁
+
+Migration zurückrollen:
+
+🏁powershell
+dotnet ef database update NameDerVorherigenMigration
+🏁
+
+Kestrel prüfen:
+
+🏁powershell
+dotnet list package | findstr -i kestrel
+🏁
+
+---
+
+=> 12. Git Repository
+
+🏁powershell
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/Guelistan/Appmanager.git
+git push -u origin main
+🏁
+
+---
+
+=> 13. Nächste Schritte
+
+ Admin-Dashboard erweitern (App-Zustände + AppPool-Steuerung)
+ IIS Management API anbinden
+ Deployment auf buhlertal123
+
+--- 
+
+dotnet publish -r win-x64 --self-contained -o "C:\Users\user\OneDrive\Desktop\OrdnerPush1"

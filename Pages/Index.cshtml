@@ -1,0 +1,36 @@
+﻿@page
+@model IndexModel
+@using AppManager.Pages.Account
+
+
+<h1>Welcome to AppManager</h1>
+<p>This is the placeholder dashboard.</p>
+
+<h2>Alle Anwendungen</h2>
+
+<div class="row">
+    @foreach (var app in Model.Applications)
+    {
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h4 class="card-title">@app.Name</h4>
+                    <p>Status:
+                        @if (app.IsStarted)
+                        {
+                            <span style="color:green;">🟢 Gestartet</span>
+                        }
+                        else
+                        {
+                            <span style="color:red;">🔴 Gestoppt</span>
+                        }
+                    </p>
+                    @if (app.RestartRequired)
+                    {
+                        <p style="color:rgb(255, 123, 0);">⚠️ Neustart erforderlich</p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>

@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AppManager</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/AppManager.styles.css" asp-append-version="true" />
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <div class="container">
+            <a class="navbar-brand" asp-page="/Index">AppManager</a>
+            <div class="d-flex gap-2">
+                @if (User.Identity?.IsAuthenticated ?? false)
+                {
+                    <!-- Für eingeloggte Benutzer -->
+                    <span class="navbar-text">Hallo, @User.Identity.Name!</span>
+
+                    <!-- Basis-Navigation für alle authentifizierten Benutzer -->
+                    <a class="btn btn-outline-success" asp-page="/Admin/Dashboard">Dashboard</a>
+                    <a class="btn btn-outline-info" asp-page="/Admin/History">History</a>
+                    
+                    @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+                    {
+                        <!-- Admin-spezifische Navigation -->
+                        <a class="btn btn-outline-primary" asp-page="/Admin/Diagrams">📊 Diagramme</a>
+                        <a class="btn btn-outline-warning" asp-page="/Admin/Users">Users</a>
+                        <!-- Rollenwechsel-Button für Admins -->
+                        <a class="btn btn-outline-secondary" asp-page="/Account/SwitchRole" title="Rollenwechsel">🔄</a>
+                    }
+
+                    <form method="post" asp-page="/Account/Logout" class="d-inline">
+                        <button type="submit" class="btn btn-outline-danger">Logout</button>
+                    </form>
+                }
+                else
+                {
+                    <!-- Für nicht eingeloggte Benutzer -->
+                    <a class="btn btn-outline-primary" asp-page="/Account/Login">Login</a>
+                    <a class="btn btn-outline-secondary" asp-page="/Account/Register">Register</a>
+                }
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted mt-4">
+        <div class="container">
+            &copy; 2025 - AppManager - <a asp-area="" asp-page="/Privacy">Privacy</a>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+
+</body>
+
+</html>

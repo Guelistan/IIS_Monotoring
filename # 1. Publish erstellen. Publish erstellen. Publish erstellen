@@ -1,0 +1,5 @@
+# 1. Publish erstellen
+dotnet publish -c Release -o ./publish
+
+# 2. Auf Server kopieren  
+# 3. Mit IIS Setup-Script installieren

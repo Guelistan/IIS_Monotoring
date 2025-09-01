@@ -1,0 +1,13 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\bin",
+    "\\Data",
+    "\\Migrations",
+    "\\Models",
+    "\\Services",
+    "\\wwwroot"
+  ],
+  "SelectedNode": "\\Migrations\\AppDbContextModelSnapshot.cs",
+  "PreviewInSolutionExplorer": true
+}

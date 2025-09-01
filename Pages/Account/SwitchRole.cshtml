@@ -1,0 +1,98 @@
+@page
+@model AppManager.Pages.Account.SwitchRoleModel
+@{
+    ViewData["Title"] = "Rollenwechsel";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">🔄 Rollenwechsel</h4>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h5>Aktuelle Berechtigung:</h5>
+                        <p class="text-muted">
+                            @if (Model.IsSuperAdmin)
+                            {
+                                <span class="badge bg-danger">SuperAdmin</span>
+                            }
+                            else if (Model.IsAdmin)
+                            {
+                                <span class="badge bg-warning">Admin</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">AppOwner</span>
+                            }
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>Aktueller Modus:</h5>
+                        @if (Model.IsCurrentlyInAdminMode)
+                        {
+                            <div class="alert alert-warning">
+                                <strong>🛡️ Admin-Modus aktiv</strong><br>
+                                Sie haben Zugriff auf alle Admin-Funktionen.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <strong>👤 Benutzer-Modus aktiv</strong><br>
+                                Sie sehen die App aus Sicht eines normalen AppOwners.
+                            </div>
+                        }
+                    </div>
+
+                    @if (Model.IsAdmin || Model.IsSuperAdmin)
+                    {
+                        <form method="post" asp-page-handler="ToggleAdminMode">
+                            @if (Model.IsCurrentlyInAdminMode)
+                            {
+                                <button type="submit" class="btn btn-outline-info btn-lg w-100">
+                                    👤 Zu Benutzer-Modus wechseln
+                                </button>
+                                <small class="text-muted d-block mt-2">
+                                    Wechseln Sie zur normalen AppOwner-Ansicht, um die App aus Benutzersicht zu testen.
+                                </small>
+                            }
+                            else
+                            {
+                                <button type="submit" class="btn btn-outline-warning btn-lg w-100">
+                                    🛡️ Zu Admin-Modus wechseln
+                                </button>
+                                <small class="text-muted d-block mt-2">
+                                    Aktivieren Sie den Admin-Modus, um auf alle Verwaltungsfunktionen zuzugreifen.
+                                </small>
+                            }
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">
+                            <strong>ℹ️ Information</strong><br>
+                            Sie haben keine Admin-Berechtigung. Rollenwechsel ist nicht verfügbar.
+                        </div>
+                    }
+
+                    <hr>
+                    <div class="d-flex gap-2">
+                        @if (Model.IsCurrentlyInAdminMode)
+                        {
+                            <a href="/Admin/Dashboard" class="btn btn-primary">📊 Admin Dashboard</a>
+                        }
+                        else
+                        {
+                            <a href="/Index" class="btn btn-primary">🏠 Startseite</a>
+                        }
+                        <a href="/Account/Logout" class="btn btn-outline-danger">🚪 Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

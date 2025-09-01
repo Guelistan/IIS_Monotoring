@@ -1,0 +1,62 @@
+
+
+Um ein ASP.NET Core-Projekt mit IIS zu verbinden und Apps einzubinden, gehe so vor:
+
+---
+
+### 1. **IIS vorbereiten**
+- Installiere das [ASP.NET Core Hosting Bundle](https://aka.ms/dotnetcore-6-windowshosting) auf deinem Windows-Rechner.
+- Aktiviere im Windows-Feature „Internetinformationsdienste (IIS)“ und „Anwendungsentwicklungsfunktionen > ASP.NET“.
+- Starte den Rechner ggf. neu.
+
+---
+
+### 2. **Projekt für IIS veröffentlichen**
+Im Terminal im Projektordner:
+```bash
+dotnet publish -c Release -o ./publish
+```
+Das erzeugt im Ordner `publish` alle nötigen Dateien.
+
+---
+
+### 3. **IIS-Site einrichten**
+- Öffne den IIS-Manager (`inetmgr`).
+- Rechtsklick auf „Sites“ > „Website hinzufügen“.
+- Wähle als „Physikalischer Pfad“ den `publish`-Ordner aus.
+- Lege einen Port (z.B. 8080) oder Hostnamen fest.
+
+---
+
+### 4. **AppManager als Startseite festlegen**
+- Stelle sicher, dass in deinem `publish`-Ordner die Datei `web.config` 
+vorhanden ist (wird beim Publish automatisch erzeugt).
+- IIS erkennt dann automatisch deine ASP.NET Core-App.
+
+---
+
+### 5. **Apps einbinden**
+- Wenn du mit „Apps einbinden“ meinst, 
+dass dein AppManager andere Programme starten/stoppen kann:  
+  Stelle sicher, dass dein IIS-User (meist `IIS APPPOOL\<AppPoolName>`) 
+  die nötigen Rechte hat, um Prozesse zu starten.
+- Passe ggf. die Pfade in deiner Datenbank oder Konfiguration an, 
+damit sie auf dem Server stimmen.
+
+---
+
+**Hinweis:**  
+- Nach dem Veröffentlichen erreichst du deine Seite z.B. 
+unter `http://localhost:8080` oder dem eingestellten Hostnamen.
+- Für das Starten externer Programme unter IIS sind oft zusätzliche Rechte oder 
+Einstellungen nötig (z.B. „Als Administrator ausführen“ für den AppPool).
+
+---
+
+**Fazit:**  
+1. Hosting Bundle installieren  
+2. Projekt veröffentlichen  
+3. IIS-Site einrichten  
+4. Rechte für externe Apps prüfen  
+5. Seite im Browser testen
+

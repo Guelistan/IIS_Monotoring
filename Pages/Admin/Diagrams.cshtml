@@ -1,0 +1,232 @@
+@page
+@model AppManager.Pages.Admin.DiagramsModel
+@{
+    ViewData["Title"] = "System Diagramme";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>📊 System Diagramme</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+                        <li class="breadcrumb-item"><a asp-page="/Admin/Dashboard">Admin</a></li>
+                        <li class="breadcrumb-item active">Diagramme</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-4" id="diagramTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="usecase-png-tab" data-bs-toggle="tab" data-bs-target="#usecase-png"
+                type="button" role="tab">
+                🖼️ Use Case Diagramm
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="sequence-tab" data-bs-toggle="tab" data-bs-target="#sequence" type="button"
+                role="tab">
+                🔄 Sequenzdiagramm
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="diagramTabContent">
+
+        <!-- Use Case PNG Diagram -->
+        <div class="tab-pane fade show active" id="usecase-png" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">🖼️ Use Case Diagramm</h4>
+                    <small class="text-muted">Zeigt die Benutzerrollen und Systeminteraktionen des AppManager
+                        Systems</small>
+                </div>
+                <div class="card-body text-center">
+                    <img src="~/useCaseDiagramm.png" alt="Use Case Diagramm" class="img-fluid"
+                        style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <div class="mt-3">
+                        <p class="text-muted">Use Case Diagramm - zeigt alle Benutzerrollen und Systemfunktionen</p>
+                        <a href="~/useCaseDiagramm.png" target="_blank" class="btn btn-outline-primary">
+                            🔍 Vollbild anzeigen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sequenzdiagramm -->
+        <div class="tab-pane fade" id="sequence" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">🔄 Sequenzdiagramm - App-Start Prozess</h4>
+                    <small class="text-muted">Zeigt den Ablauf beim Starten einer Anwendung</small>
+                </div>
+                <div class="card-body">
+                    <div class="mermaid" id="sequence-diagram">
+                        sequenceDiagram
+                        participant User as 👤 App Owner
+                        participant UI as 🖥️ Web UI
+                        participant Controller as 🎮 Controller
+                        participant AppService as ⚙️ AppService
+                        participant DB as 🗄️ Database
+                        participant ProgramMgr as 🔧 ProgramManager
+                        participant System as 💻 Windows System
+                        participant Logger as 📝 Logger
+
+                        User->>UI: Klick "Start App"
+                        UI->>Controller: POST /start/{appId}
+
+                        Note over Controller: Berechtigungsprüfung
+                        Controller->>DB: Check AppOwnership
+                        DB-->>Controller: User authorized
+
+                        Controller->>AppService: StartApplicationAsync(appId, reason)
+                        AppService->>DB: Get Application Details
+                        DB-->>AppService: Application data
+
+                        Note over AppService: Validierung
+                        alt App bereits gestartet
+                        AppService-->>Controller: Error: Already running
+                        Controller-->>UI: Show error message
+                        UI-->>User: "App läuft bereits"
+                        else App kann gestartet werden
+                        AppService->>ProgramMgr: StartProgram(exePath, args)
+                        ProgramMgr->>System: Process.Start()
+                        System-->>ProgramMgr: ProcessId
+
+                        ProgramMgr-->>AppService: Success + ProcessId
+
+                        Note over AppService: Update Database
+                        AppService->>DB: Update App.IsStarted = true
+                        AppService->>DB: Update App.ProcessId
+                        AppService->>DB: Insert AppLaunchHistory
+
+                        AppService->>Logger: Log success
+                        Logger->>DB: Insert LogEntry
+
+                        AppService-->>Controller: Success
+                        Controller-->>UI: Success response
+                        UI-->>User: "App erfolgreich gestartet"
+
+                        Note over UI: Update UI
+                        UI->>UI: Refresh app status
+                        UI->>UI: Show green indicator
+                        end
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        // Mermaid initialisieren
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#0d6efd',
+                primaryTextColor: '#000',
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontSize: '14px'
+            },
+            sequence: {
+                useMaxWidth: true,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                messageMargin: 35,
+                mirrorActors: true
+            }
+        });
+
+        // Tab-Wechsel Event für Mermaid Neu-Rendering
+        document.addEventListener('DOMContentLoaded', function () {
+            var tabTriggerList = [].slice.call(document.querySelectorAll('#diagramTabs button[data-bs-toggle="tab"]'));
+            tabTriggerList.forEach(function (tabTrigger) {
+                tabTrigger.addEventListener('shown.bs.tab', function (event) {
+                    var targetId = event.target.getAttribute('data-bs-target');
+                    if (targetId === '#sequence') {
+                        setTimeout(function () {
+                            try {
+                                mermaid.init();
+                            } catch (e) {
+                                console.log('Mermaid rendering error:', e);
+                            }
+                        }, 200);
+                    }
+                });
+            });
+
+            // Initial render für Sequenz-Diagramm
+            setTimeout(function () {
+                try {
+                    mermaid.init();
+                } catch (e) {
+                    console.log('Initial mermaid rendering error:', e);
+                }
+            }, 500);
+        });
+    </script>
+}
+
+<style>
+    .mermaid {
+        text-align: center;
+        margin: 20px 0;
+        background: #fafafa;
+        border-radius: 8px;
+        padding: 20px;
+        min-height: 400px;
+    }
+
+    .card {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: none;
+        margin-bottom: 20px;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom: none;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .nav-tabs .nav-link.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+    }
+
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+    }
+
+    .btn-outline-primary {
+        border-color: #667eea;
+        color: #667eea;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+</style>                                                                                        

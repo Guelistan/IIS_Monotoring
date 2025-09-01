@@ -1,0 +1,471 @@
+@page
+@model AppManager.Pages.Admin.AppOwnershipModel
+@{
+    ViewData["Title"] = "App-Owner Management";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>👥 App-Owner Management</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+                        <li class="breadcrumb-item"><a asp-page="/Admin/Dashboard">Admin</a></li>
+                        <li class="breadcrumb-item active">App-Owner</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOwnershipModal">
+                ➕ Neue Berechtigung hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <!-- Current Ownerships -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">🔐 Aktuelle App-Owner Berechtigungen</h4>
+                    <small class="text-muted">Verwalten Sie, welcher Benutzer welche Anwendungen steuern darf</small>
+                </div>
+                <div class="card-body">
+                    @if (Model.AppOwnerships.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>👤 Benutzer</th>
+                                        <th>📱 Anwendung</th>
+                                        <th>🖥️ Windows Username</th>
+                                        <th>🏊‍♀️ IIS App Pool</th>
+                                        <th>📅 Erstellt am</th>
+                                        <th>👤 Erstellt von</th>
+                                        <th>⚙️ Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var ownership in Model.AppOwnerships)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-2">
+                                                        <span class="badge bg-primary">👤</span>
+                                                    </div>
+                                                    <div>
+                                                        <strong>@ownership.User.Vorname @ownership.User.Nachname</strong><br>
+                                                        <small class="text-muted">@ownership.User.UserName</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-2">
+                                                        @if (ownership.Application.IsIISApplication)
+                                                        {
+                                                            <span class="badge bg-success">🌐</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">🖥️</span>
+                                                        }
+                                                    </div>
+                                                    <div>
+                                                        <strong>@ownership.Application.Name</strong><br>
+                                                        @if (!string.IsNullOrEmpty(ownership.Application.Description))
+                                                        {
+                                                            <small class="text-muted">@ownership.Application.Description</small>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <code>@ownership.WindowsUsername</code>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(ownership.IISAppPoolName))
+                                                {
+                                                    <span class="badge bg-info">@ownership.IISAppPoolName</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">-</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <small>@ownership.CreatedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                                            </td>
+                                            <td>
+                                                <small>@ownership.CreatedBy</small>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal" data-bs-target="#deleteOwnershipModal"
+                                                    data-ownership-id="@ownership.Id"
+                                                    data-user-name="@ownership.User.Vorname @ownership.User.Nachname"
+                                                    data-user-username="@ownership.User.UserName"
+                                                    data-app-name="@ownership.Application.Name"
+                                                    data-windows-username="@ownership.WindowsUsername"
+                                                    title="Berechtigung entfernen">
+                                                    🗑️ Entfernen
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <div class="mb-3">
+                                <span style="font-size: 4rem;">📋</span>
+                            </div>
+                            <h4>Keine App-Owner Berechtigungen vorhanden</h4>
+                            <p class="text-muted">Fügen Sie die erste Berechtigung hinzu, um Benutzern den Zugriff auf
+                                Anwendungen zu gewähren.</p>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                                data-bs-target="#addOwnershipModal">
+                                ➕ Erste Berechtigung hinzufügen
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Card -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">👥 Benutzer mit Berechtigungen</h5>
+                    <h2 class="text-primary">@Model.AppOwnerships.Select(o => o.UserId).Distinct().Count()</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📱 Verwaltete Anwendungen</h5>
+                    <h2 class="text-success">@Model.AppOwnerships.Select(o => o.ApplicationId).Distinct().Count()</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">🔐 Gesamt Berechtigungen</h5>
+                    <h2 class="text-warning">@Model.AppOwnerships.Count</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Ownership Modal -->
+<div class="modal fade" id="addOwnershipModal" tabindex="-1" aria-labelledby="addOwnershipModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Add">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addOwnershipModalLabel">➕ Neue App-Owner Berechtigung</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="userId" class="form-label">👤 Benutzer auswählen</label>
+                                <select asp-for="NewOwnership.UserId" class="form-select" id="userId" required>
+                                    <option value="">-- Benutzer auswählen --</option>
+                                    @foreach (var user in Model.AvailableUsers)
+                                    {
+                                        <option value="@user.Id">@user.Vorname @user.Nachname (@user.UserName)</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="NewOwnership.UserId" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="applicationId" class="form-label">📱 Anwendung auswählen</label>
+                                <select asp-for="NewOwnership.ApplicationId" class="form-select" id="applicationId"
+                                    required>
+                                    <option value="">-- Anwendung auswählen --</option>
+                                    @foreach (var app in Model.AvailableApplications)
+                                    {
+                                        <option value="@app.Id">
+                                            @app.Name
+                                            @if (app.IsIISApplication)
+                                            {
+                                                <text> (IIS)</text>
+                                            }
+                                        </option>
+                                    }
+                                </select>
+                                <span asp-validation-for="NewOwnership.ApplicationId" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="windowsUsername" class="form-label">🖥️ Windows Username</label>
+                                <input asp-for="NewOwnership.WindowsUsername" type="text" class="form-control"
+                                    id="windowsUsername" placeholder="z.B. DOMAIN\username oder username" required>
+                                <div class="form-text">
+                                    Der Windows-Benutzername, unter dem die Anwendung ausgeführt wird
+                                </div>
+                                <span asp-validation-for="NewOwnership.WindowsUsername" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="iisAppPoolName" class="form-label">🏊‍♀️ IIS App Pool Name
+                                    (optional)</label>
+                                <input asp-for="NewOwnership.IISAppPoolName" type="text" class="form-control"
+                                    id="iisAppPoolName" placeholder="z.B. MyAppPool">
+                                <div class="form-text">
+                                    Name des IIS Application Pools (nur für IIS-Anwendungen)
+                                </div>
+                                <span asp-validation-for="NewOwnership.IISAppPoolName" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>ℹ️ Hinweis:</strong>
+                        Diese Berechtigung erlaubt es dem Benutzer, die ausgewählte Anwendung zu starten, stoppen und zu
+                        verwalten.
+                        Stellen Sie sicher, dass der Windows-Username korrekt ist.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">✅ Berechtigung erstellen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <script>
+            window.addEventListener('DOMContentLoaded', function () {
+                alert('✅ @TempData["SuccessMessage"]');
+            });
+        </script>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <script>
+            window.addEventListener('DOMContentLoaded', function () {
+                alert('❌ @TempData["ErrorMessage"]');
+            });
+        </script>
+    }
+}
+<th>📅 Erstellt</th>
+<th>⚙️ Aktionen</th>
+</tr>
+</thead>
+<tbody>
+    @foreach (var ownership in Model.AppOwnerships)
+    {
+        <tr>
+            <td>
+                <strong>@ownership.User.Vorname @ownership.User.Nachname</strong>
+                <br><small class="text-muted">@ownership.User.UserName</small>
+            </td>
+            <td>
+                <strong>@ownership.Application.Name</strong>
+                <br><small class="text-muted">@ownership.Application.Description</small>
+            </td>
+            <td>
+                <code>@ownership.WindowsUsername</code>
+            </td>
+            <td>
+                @if (!string.IsNullOrEmpty(ownership.IISAppPoolName))
+                {
+                    <span class="badge bg-info">@ownership.IISAppPoolName</span>
+                }
+                else
+                {
+                    <span class="text-muted">-</span>
+                }
+            </td>
+            <td>
+                @ownership.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                <br><small class="text-muted">von @ownership.CreatedBy</small>
+            </td>
+            <td>
+                <form method="post" style="display: inline;">
+                    <input type="hidden" name="ownershipId" value="@ownership.Id" />
+                    <button type="submit" asp-page-handler="Delete" class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Berechtigung wirklich entfernen?')">
+                        🗑️ Entfernen
+                    </button>
+                </form>
+            </td>
+        </tr>
+    }
+</tbody>
+</table>
+</div>
+}
+else
+{
+<div class="text-center py-5">
+    <div class="mb-3">
+        <span style="font-size: 4rem;">📋</span>
+    </div>
+    <h4>Keine App-Owner Berechtigungen vorhanden</h4>
+    <p class="text-muted">Fügen Sie die erste Berechtigung hinzu, um Benutzern den Zugriff auf
+        Anwendungen zu gewähren.</p>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOwnershipModal">
+        ➕ Erste Berechtigung hinzufügen
+    </button>
+</div>
+}
+Klicken Sie auf "Neue Berechtigung hinzufügen", um zu starten.</p>
+</div>
+}
+</div>
+</div>
+</div>
+</div>
+</div>
+
+
+
+<style>
+    .card {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border: none;
+        margin-bottom: 20px;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom: none;
+    }
+
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+    }
+
+    .table th {
+        border-top: none;
+        font-weight: 600;
+    }
+
+    .badge {
+        font-size: 0.8em;
+    }
+</style>
+
+<!-- Delete Ownership Confirmation Modal -->
+<div class="modal fade" id="deleteOwnershipModal" tabindex="-1" aria-labelledby="deleteOwnershipModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteOwnershipModalLabel">
+                    ⚠️ Berechtigung entfernen bestätigen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Achtung!</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                </div>
+
+                <p><strong>Sind Sie sicher, dass Sie die folgende App-Owner-Berechtigung dauerhaft entfernen
+                        möchten?</strong></p>
+
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6><strong>👤 Benutzer:</strong></h6>
+                        <p class="mb-2">
+                            <span id="deleteUserName">-</span><br>
+                            <small class="text-muted">Username: <span id="deleteUserUsername">-</span></small>
+                        </p>
+
+                        <h6><strong>🖥️ Anwendung:</strong></h6>
+                        <p class="mb-2" id="deleteAppName">-</p>
+
+                        <h6><strong>💻 Windows Username:</strong></h6>
+                        <p class="mb-0"><code id="deleteWindowsUsername">-</code></p>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <p class="text-muted mb-2"><strong>Auswirkungen:</strong></p>
+                    <ul class="text-muted">
+                        <li>🚫 Der Benutzer kann diese Anwendung nicht mehr starten</li>
+                        <li>📊 Alle zugehörigen Launch-Historie-Einträge bleiben erhalten</li>
+                        <li>⚙️ Die Berechtigung muss neu erstellt werden, um wieder Zugriff zu gewähren</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    ❌ Abbrechen
+                </button>
+                <form method="post" asp-page-handler="Delete" style="display: inline;" id="deleteOwnershipForm">
+                    <input type="hidden" name="ownershipId" id="deleteOwnershipId" value="" />
+                    <button type="submit" class="btn btn-danger">
+                        🗑️ Ja, Berechtigung entfernen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle delete modal data population
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteModal = document.getElementById('deleteOwnershipModal');
+
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const ownershipId = button.getAttribute('data-ownership-id');
+            const userName = button.getAttribute('data-user-name');
+            const userUsername = button.getAttribute('data-user-username');
+            const appName = button.getAttribute('data-app-name');
+            const windowsUsername = button.getAttribute('data-windows-username');
+
+            // Update modal content
+            document.getElementById('deleteUserName').textContent = userName;
+            document.getElementById('deleteUserUsername').textContent = userUsername;
+            document.getElementById('deleteAppName').textContent = appName;
+            document.getElementById('deleteWindowsUsername').textContent = windowsUsername;
+            document.getElementById('deleteOwnershipId').value = ownershipId;
+        });
+    });
+</script></div>

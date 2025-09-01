@@ -1,0 +1,458 @@
+@page
+@model AppManager.Pages.Admin.ApplicationManagementModel
+@{
+    ViewData["Title"] = "Application Management";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>📱 Application Management</h2>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a asp-page="/Index">Home</a></li>
+                        <li class="breadcrumb-item"><a asp-page="/Admin/Dashboard">Admin</a></li>
+                        <li class="breadcrumb-item active">Applications</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addApplicationModal">
+                ➕ Neue Anwendung hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <!-- Current Applications -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">🖥️ Registrierte Anwendungen</h4>
+                    <small class="text-muted">Verwalten Sie alle System-Anwendungen</small>
+                </div>
+                <div class="card-body">
+                    @if (Model.Applications.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>📱 Name</th>
+                                        <th>📝 Beschreibung</th>
+                                        <th>🎯 Status</th>
+                                        <th>💻 Typ</th>
+                                        <th>📂 Pfad</th>
+                                        <th>⚙️ Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var app in Model.Applications)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="me-2">
+                                                        @if (app.IsIISApplication)
+                                                        {
+                                                            <span class="badge bg-success">🌐</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">🖥️</span>
+                                                        }
+                                                    </div>
+                                                    <div>
+                                                        <strong>@app.Name</strong><br>
+                                                        @if (app.RestartRequired)
+                                                        {
+                                                            <small class="text-warning">⚠️ Neustart erforderlich</small>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(app.Description))
+                                                {
+                                                    <span>@app.Description</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">-</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (app.IsStarted)
+                                                {
+                                                    <span class="badge bg-success">🟢 Gestartet</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">🔴 Gestoppt</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (app.IsIISApplication)
+                                                {
+                                                    <div>
+                                                        <span class="badge bg-info">IIS Application</span><br>
+                                                        @if (!string.IsNullOrEmpty(app.IISAppPoolName))
+                                                        {
+                                                            <small class="text-muted">Pool: @app.IISAppPoolName</small>
+                                                        }
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Desktop Application</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <code class="small">@app.ExecutablePath</code>
+                                                @if (!string.IsNullOrEmpty(app.Arguments))
+                                                {
+                                                    <br><small class="text-muted">Args: @app.Arguments</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="btn-group-vertical btn-group-sm" role="group">
+                                                    @if (!app.IsStarted)
+                                                    {
+                                                        <form method="post" asp-page-handler="Start" style="display: inline;">
+                                                            <input type="hidden" name="applicationId" value="@app.Id" />
+                                                            <input type="hidden" name="customReason" value="Admin Manual Start" />
+                                                            <button type="submit" class="btn btn-sm btn-success" title="Anwendung starten">
+                                                                ▶️ Start
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                    else
+                                                    {
+                                                        <form method="post" asp-page-handler="Stop" style="display: inline;">
+                                                            <input type="hidden" name="applicationId" value="@app.Id" />
+                                                            <input type="hidden" name="customReason" value="Admin Manual Stop" />
+                                                            <button type="submit" class="btn btn-sm btn-warning" title="Anwendung stoppen">
+                                                                ⏹️ Stop
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                    
+                                                    <form method="post" asp-page-handler="Restart" style="display: inline;">
+                                                        <input type="hidden" name="applicationId" value="@app.Id" />
+                                                        <input type="hidden" name="customReason" value="Admin Manual Restart" />
+                                                        <button type="submit" class="btn btn-sm btn-info" title="Anwendung neustarten">
+                                                            🔄 Restart
+                                                        </button>
+                                                    </form>
+                                                    
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#deleteAppModal"
+                                                            data-app-id="@app.Id"
+                                                            data-app-name="@app.Name"
+                                                            data-app-path="@app.ExecutablePath"
+                                                            title="Anwendung löschen">
+                                                        🗑️ Löschen
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <div class="mb-3">
+                                <span style="font-size: 4rem;">📱</span>
+                            </div>
+                            <h4>Keine Anwendungen registriert</h4>
+                            <p class="text-muted">Fügen Sie die erste Anwendung hinzu, um sie über das System zu verwalten.</p>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addApplicationModal">
+                                ➕ Erste Anwendung hinzufügen
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📱 Gesamt Anwendungen</h5>
+                    <h2 class="text-primary">@Model.Applications.Count</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">🟢 Aktive Anwendungen</h5>
+                    <h2 class="text-success">@Model.Applications.Count(a => a.IsStarted)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">🌐 IIS Anwendungen</h5>
+                    <h2 class="text-info">@Model.Applications.Count(a => a.IsIISApplication)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">⚠️ Neustart erforderlich</h5>
+                    <h2 class="text-warning">@Model.Applications.Count(a => a.RestartRequired)</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Application Modal -->
+<div class="modal fade" id="addApplicationModal" tabindex="-1" aria-labelledby="addApplicationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <form method="post" asp-page-handler="Add">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addApplicationModalLabel">➕ Neue Anwendung hinzufügen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">📱 Anwendungsname *</label>
+                                <input asp-for="NewApplication.Name" type="text" class="form-control" id="name" 
+                                       placeholder="z.B. My Desktop App" required>
+                                <span asp-validation-for="NewApplication.Name" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="description" class="form-label">📝 Beschreibung</label>
+                                <input asp-for="NewApplication.Description" type="text" class="form-control" id="description" 
+                                       placeholder="Kurze Beschreibung der Anwendung">
+                                <span asp-validation-for="NewApplication.Description" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="executablePath" class="form-label">📂 Pfad zur Ausführbaren Datei *</label>
+                                <input asp-for="NewApplication.ExecutablePath" type="text" class="form-control" id="executablePath" 
+                                       placeholder="C:\Program Files\MyApp\MyApp.exe" required>
+                                <div class="form-text">
+                                    Vollständiger Pfad zur .exe-Datei oder bei IIS-Anwendungen zur Website
+                                </div>
+                                <span asp-validation-for="NewApplication.ExecutablePath" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="arguments" class="form-label">⚙️ Kommandozeilen-Argumente</label>
+                                <input asp-for="NewApplication.Arguments" type="text" class="form-control" id="arguments" 
+                                       placeholder="--config production --verbose">
+                                <div class="form-text">
+                                    Optionale Parameter beim Anwendungsstart
+                                </div>
+                                <span asp-validation-for="NewApplication.Arguments" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="workingDirectory" class="form-label">📁 Arbeitsverzeichnis</label>
+                                <input asp-for="NewApplication.WorkingDirectory" type="text" class="form-control" id="workingDirectory" 
+                                       placeholder="C:\Program Files\MyApp\">
+                                <div class="form-text">
+                                    Verzeichnis, in dem die Anwendung startet
+                                </div>
+                                <span asp-validation-for="NewApplication.WorkingDirectory" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- IIS Section -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <div class="form-check">
+                                <input asp-for="NewApplication.IsIISApplication" class="form-check-input" type="checkbox" id="isIISApplication">
+                                <label class="form-check-label" for="isIISApplication">
+                                    <strong>🌐 IIS-Anwendung</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="iisSettings" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iisAppPoolName" class="form-label">🏊‍♀️ IIS Application Pool Name</label>
+                                        <input asp-for="NewApplication.IISAppPoolName" type="text" class="form-control" id="iisAppPoolName" 
+                                               placeholder="MyAppPool">
+                                        <span asp-validation-for="NewApplication.IISAppPoolName" class="text-danger"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="iisSiteName" class="form-label">🌍 IIS Website Name</label>
+                                        <input asp-for="NewApplication.IISSiteName" type="text" class="form-control" id="iisSiteName" 
+                                               placeholder="Default Web Site">
+                                        <span asp-validation-for="NewApplication.IISSiteName" class="text-danger"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Settings -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-3">
+                                <input asp-for="NewApplication.RestartRequired" class="form-check-input" type="checkbox" id="restartRequired">
+                                <label class="form-check-label" for="restartRequired">
+                                    ⚠️ Neustart nach Erstellung erforderlich
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <strong>ℹ️ Hinweis:</strong> 
+                        Diese Anwendung wird dem System hinzugefügt und kann dann über das Admin-Dashboard gesteuert werden.
+                        Stellen Sie sicher, dass alle Pfade korrekt sind.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">✅ Anwendung hinzufügen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    
+    <script>
+        // IIS Settings anzeigen/verbergen
+        document.getElementById('isIISApplication').addEventListener('change', function() {
+            const iisSettings = document.getElementById('iisSettings');
+            if (this.checked) {
+                iisSettings.style.display = 'block';
+            } else {
+                iisSettings.style.display = 'none';
+            }
+        });
+    </script>
+    
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <script>
+            window.addEventListener('DOMContentLoaded', function() {
+                alert('✅ @TempData["SuccessMessage"]');
+            });
+        </script>
+    }
+    
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <script>
+            window.addEventListener('DOMContentLoaded', function() {
+                alert('❌ @TempData["ErrorMessage"]');
+            });
+        </script>
+    }
+</div>
+
+<!-- Delete Application Confirmation Modal -->
+<div class="modal fade" id="deleteAppModal" tabindex="-1" aria-labelledby="deleteAppModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteAppModalLabel">
+                    ⚠️ Anwendung löschen bestätigen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Achtung!</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                </div>
+                
+                <p><strong>Sind Sie sicher, dass Sie die folgende Anwendung dauerhaft löschen möchten?</strong></p>
+                
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6><strong>🖥️ Anwendungsname:</strong></h6>
+                        <p class="mb-2" id="deleteAppName">-</p>
+                        
+                        <h6><strong>📂 Ausführungspfad:</strong></h6>
+                        <p class="mb-0"><code id="deleteAppPath">-</code></p>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <p class="text-muted mb-2"><strong>Folgende Daten werden gelöscht:</strong></p>
+                    <ul class="text-muted">
+                        <li>📱 Anwendungskonfiguration</li>
+                        <li>📊 Alle Launch-Historie-Einträge</li>
+                        <li>👥 Alle App-Owner-Berechtigungen</li>
+                        <li>⚙️ Alle gespeicherten Einstellungen</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    ❌ Abbrechen
+                </button>
+                <form method="post" asp-page-handler="Delete" style="display: inline;" id="deleteAppForm">
+                    <input type="hidden" name="applicationId" id="deleteAppId" value="" />
+                    <button type="submit" class="btn btn-danger">
+                        🗑️ Ja, dauerhaft löschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle delete modal data population
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteModal = document.getElementById('deleteAppModal');
+        
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const appId = button.getAttribute('data-app-id');
+            const appName = button.getAttribute('data-app-name');
+            const appPath = button.getAttribute('data-app-path');
+            
+            // Update modal content
+            document.getElementById('deleteAppName').textContent = appName;
+            document.getElementById('deleteAppPath').textContent = appPath;
+            document.getElementById('deleteAppId').value = appId;
+        });
+    });
+</script>
+}

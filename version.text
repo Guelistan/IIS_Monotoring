@@ -1,0 +1,21 @@
+
+
+dotnet --version
+dotnet --list-sdks
+dotnet --list-runtimes
+
+<TargetFramework>net6.0</TargetFramework>
+dotnet list package --outdated
+dotnet add package <Paketname> --version 9.*
+dotnet clean
+dotnet build
+dotnet run
+
+
+pakete aktualisieren:
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore --version 9.0.6
+dotnet add package Microsoft.AspNetCore.Identity.UI --version 9.0.6
+dotnet add package Microsoft.EntityFrameworkCore.Design --version 9.0.6
+dotnet add package Microsoft.EntityFrameworkCore.Sqlite --version 9.0.6
+
+dann dotnet clean und dotnet build und dotnet run

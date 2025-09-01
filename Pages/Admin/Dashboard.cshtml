@@ -1,0 +1,146 @@
+@page
+@model AppManager.Pages.Admin.DashboardModel
+@using AppManager.Models
+@using Microsoft.AspNetCore.Authorization
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>📋 App Dashboard</h2>
+
+    <!-- Admin Quick Actions -->
+    @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+    {
+        <div class="btn-group" role="group">
+            <a class="btn btn-outline-primary" asp-page="/Admin/Users">👥 Users</a>
+            <a class="btn btn-outline-success" asp-page="/Admin/AppOwnership">🔐 App-Owner</a>
+            <a class="btn btn-outline-warning" asp-page="/Admin/ApplicationManagement">📱 Apps</a>
+            <a class="btn btn-outline-info" asp-page="/Admin/History">📜 History</a>
+            <a class="btn btn-outline-secondary" asp-page="/Admin/Diagrams">📊 Diagramme</a>
+        </div>
+    }
+</div>
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <p class="text-success">Willkommen, @User.Identity.Name</p>
+}
+else
+{
+    <p class="text-muted"><em>Du bist nicht eingeloggt.</em></p>
+}
+
+<!-- Anwendungsübersicht -->
+<h3 class="mt-4">📱 Anwendungsübersicht</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Neustart erforderlich</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var app in Model.Applications)
+        {
+            <tr>
+                <td>@app.Name</td>
+                <td>
+                    @(app.IsStarted ?
+                                    Html.Raw("<span style='color:green;'>Gestartet</span>") :
+                                    Html.Raw("<span style='color:red;'>Gestoppt</span>"))
+                </td>
+                <td>
+                    @{
+                        var restartStatus =
+                        (Model.RestartRequiredMap.ContainsKey(app.Id) && Model.RestartRequiredMap[app.Id])
+                        ? "<span style='color:orange;'>⚠️ Ja (Historie)</span>"
+                        : app.RestartRequired
+                        ? "<span style='color:orange;'>⚠️ Ja (manuell)</span>"
+                        : "<span style='color:green;'>✅ Nein</span>";
+                    }
+                    @Html.Raw(restartStatus)
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <form method="post" asp-page-handler="Start" style="display:inline;">
+                            <input type="hidden" name="appId" value="@app.Id" />
+                            <input type="hidden" name="customReason" value="Dashboard-Start" />
+                            <button type="submit" class="btn btn-success btn-sm">▶️ Start</button>
+                        </form>
+
+                        <form method="post" asp-page-handler="Stop" style="display:inline;">
+                            <input type="hidden" name="appId" value="@app.Id" />
+                            <input type="hidden" name="customReason" value="Dashboard-Stop" />
+                            <button type="submit" class="btn btn-warning btn-sm">⏹️ Stop</button>
+                        </form>
+
+                        <form method="post" asp-page-handler="Restart" style="display:inline;">
+                            <input type="hidden" name="appId" value="@app.Id" />
+                            <input type="hidden" name="customReason" value="Dashboard-Restart" />
+                            <button type="submit" class="btn btn-info btn-sm">🔄 Restart</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Start-Historie außerhalb der App-Tabelle -->
+<h3 class="mt-5">🕓 Start-Historie</h3>
+@if (Model.LaunchHistory?.Any() == true)
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>App</th>
+                <th>Aktion</th>
+                <th>Benutzer</th>
+                <th>Zeitpunkt</th>
+                <th>Grund</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in Model.LaunchHistory)
+            {
+                <tr>
+                    <td>@(entry.Application?.Name ?? "Unbekannt")</td>
+                    <td>
+                        @if (entry.Action == "Start")
+                        {
+                            <span class="badge bg-success">▶️ Start</span>
+                        }
+                        else if (entry.Action == "Stop")
+                        {
+                            <span class="badge bg-danger">⏹️ Stop</span>
+                        }
+                        else if (entry.Action == "Restart")
+                        {
+                            <span class="badge bg-warning">🔄 Restart</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">@entry.Action</span>
+                        }
+                    </td>
+                    <td>
+                        @if (entry.User != null)
+                        {
+                            <span>@entry.User.Vorname @entry.User.Nachname</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">System</span>
+                        }
+                    </td>
+                    <td>@entry.LaunchTime.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                    <td>@entry.Reason</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p class="text-muted"><em>Keine Start-Historie vorhanden.</em></p>
+}

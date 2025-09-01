@@ -1,0 +1,78 @@
+﻿ /* Hintergrund für die gesamte Seite */
+ html,
+ body {
+   background: linear-gradient(to bottom right, #11b0e6, #a1e3ff);
+   font-family: 'Segoe UI', sans-serif;
+   min-height: 100vh;
+   margin: 0;
+   padding: 0;
+   color: #333;
+ }
+
+ /* Header-Stil */
+ header {
+   background: linear-gradient(45deg, purple, yellow);
+   color: white;
+   padding: 1rem;
+   text-align: center;
+   font-size: 1.5rem;
+   font-weight: bold;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+ }
+
+ /* Karten-Stil */
+ .card {
+   background-color: rgba(255, 255, 255, 0.9);
+   border-radius: 8px;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+   transition: transform 0.2s ease;
+ }
+
+ .card:hover {
+   transform: scale(1.02);
+ }
+
+ /* Tabellen-Stil */
+ .table {
+   background-color: rgba(255, 255, 255, 0.95);
+   border-radius: 6px;
+   overflow: hidden;
+ }
+
+ .table th {
+   background-color: #007acc;
+   color: white;
+ }
+
+ .table td {
+   vertical-align: middle;
+ }
+
+ /* Buttons */
+ .btn-success,
+ .btn-start {
+   background-color: #28a745;
+   color: white;
+ }
+
+ .btn-stop {
+   background-color: #dc3545;
+   color: white;
+ }
+
+ .btn-restart {
+   background-color: #ffc107;
+   color: black;
+ }
+
+ /* Kleine Buttons */
+ .btn-sm {
+   padding: 0.25rem 0.5rem;
+   font-size: 0.875rem;
+ }
+
+ /* Responsive Spacing */
+ .row {
+   margin-top: 1rem;
+   margin-bottom: 1rem;
+ }
