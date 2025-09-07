@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using AppManager.Models;
+using AppModel = AppManager.Models.Application;
 
 namespace AppManager.Services
 {
@@ -8,7 +9,8 @@ namespace AppManager.Services
     {
         public void StartApp(Application app)
         {
-            Process.Start(app.Path);
+            // Use ExecutablePath (model uses ExecutablePath now)
+            Process.Start(app.ExecutablePath);
         }
 
         public void StopApp(Application app)
@@ -16,7 +18,7 @@ namespace AppManager.Services
             // Alle Prozesse mit dem Namen der App beenden
             // Beispiel: Wenn app.Path = "C:\\Programme\\BeispielApp.exe"
             // Dann holen wir den Prozessnamen ohne ".exe"
-            string processName = System.IO.Path.GetFileNameWithoutExtension(app.Path);
+            string processName = System.IO.Path.GetFileNameWithoutExtension(app.ExecutablePath);
 
             foreach (var process in Process.GetProcessesByName(processName))
             {
@@ -36,7 +38,7 @@ namespace AppManager.Services
         public bool StopApp(Application app, out string errorMessage)
         {
             errorMessage = null;
-            string processName = System.IO.Path.GetFileNameWithoutExtension(app.Path);
+            string processName = System.IO.Path.GetFileNameWithoutExtension(app.ExecutablePath);
             var processes = Process.GetProcessesByName(processName);
 
             if (processes.Length == 0)

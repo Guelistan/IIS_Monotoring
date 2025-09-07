@@ -310,8 +310,6 @@ C:\Users\user\OneDrive\Desktop\OrdnerPush1\Microsoft.Extensions.Primitives.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\Microsoft.Extensions.WebEncoders.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\Microsoft.JSInterop.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\Microsoft.Net.Http.Headers.dll
-C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Diagnostics.EventLog.Messages.dll
-C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Diagnostics.EventLog.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.IO.Pipelines.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Security.Cryptography.Pkcs.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Security.Cryptography.Xml.dll
@@ -343,6 +341,11 @@ C:\Users\user\OneDrive\Desktop\OrdnerPush1\Microsoft.Web.Administration.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\SQLitePCLRaw.batteries_v2.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\SQLitePCLRaw.core.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\SQLitePCLRaw.provider.e_sqlite3.dll
+C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Configuration.ConfigurationManager.dll
+C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Diagnostics.EventLog.Messages.dll
+C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Diagnostics.EventLog.dll
+C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Diagnostics.PerformanceCounter.dll
+C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.Security.Cryptography.ProtectedData.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\System.ServiceProcess.ServiceController.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\e_sqlite3.dll
 C:\Users\user\OneDrive\Desktop\OrdnerPush1\AppManager.deps.json

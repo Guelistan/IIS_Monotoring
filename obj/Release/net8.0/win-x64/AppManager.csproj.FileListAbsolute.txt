@@ -440,3 +440,7 @@ C:\guelistan\Dersler\AppManager\obj\Release\net8.0\win-x64\refint\AppManager.dll
 C:\guelistan\Dersler\AppManager\obj\Release\net8.0\win-x64\AppManager.pdb
 C:\guelistan\Dersler\AppManager\obj\Release\net8.0\win-x64\AppManager.genruntimeconfig.cache
 C:\guelistan\Dersler\AppManager\obj\Release\net8.0\win-x64\ref\AppManager.dll
+C:\guelistan\Dersler\Appmanager\obj\Release\net8.0\win-x64\AppManager.sourcelink.json
+C:\guelistan\Dersler\Appmanager\bin\Release\net8.0\win-x64\System.Configuration.ConfigurationManager.dll
+C:\guelistan\Dersler\Appmanager\bin\Release\net8.0\win-x64\System.Diagnostics.PerformanceCounter.dll
+C:\guelistan\Dersler\Appmanager\bin\Release\net8.0\win-x64\System.Security.Cryptography.ProtectedData.dll

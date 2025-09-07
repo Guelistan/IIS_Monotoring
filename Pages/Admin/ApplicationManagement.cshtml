@@ -1,42 +1,178 @@
-<td>
-    <div class="btn-group-vertical btn-group-sm" role="group">
-        @if (!app.IsStarted)
-        {
-            <form method="post" asp-page-handler="Start" style="display: inline;"></form>
-                <input type="hidden" name="applicationId" value="@app.Id" />
-                <input type="hidden" name="customReason" value="Admin Manual Start" />
-                <button type="submit" class="btn btn-sm btn-success" title="Anwendung starten">
-                    ▶️ Start
-                </button>
-            </form>
-        }
-        else
-        {
-            <form method="post" asp-page-handler="Stop" style="display: inline;">
-                <input type="hidden" name="applicationId" value="@app.Id" />
-                <input type="hidden" name="customReason" value="Admin Manual Stop" />
-                <button type="submit" class="btn btn-sm btn-warning" title="Anwendung stoppen">
-                    ⏹️ Stop
-                </button>
-            </form>
-        }
-        
-        <form method="post" asp-page-handler="Restart" style="display: inline;">
-            <input type="hidden" name="applicationId" value="@app.Id" />
-            <input type="hidden" name="customReason" value="Admin Manual Restart" />
-            <button type="submit" class="btn btn-sm btn-info" title="Anwendung neustarten"></button>
-                🔄 Restart
-            </button>
-        </form>
+@page
+@model AppManager.Pages.Admin.ApplicationManagementModel
+@using AppManager.Models
+@{
+    ViewData["Title"] = "Anwendungsverwaltung";
+}
 
-        @if (app.IsIISApplication)
-        {
-            <form method="post" asp-page-handler="Recycle" style="display: inline;"></form>
-                <input type="hidden" name="applicationId" value="@app.Id" />
-                <button type="submit" class="btn btn-sm btn-outline-secondary" title="IIS Application Pool recyceln"></button>
-                    ♻️ Recycle
-                </button>
-            </form>
-        }
+<h1>Anwendungsverwaltung</h1>
+
+<!-- Erfolgsmeldung -->
+@if (TempData["SuccessMessage"] != null)
+{
+<div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+
+<!-- Fehlermeldung -->
+@if (TempData["ErrorMessage"] != null)
+{
+<div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<!-- IIS-Berechtigungsfehler anzeigen -->
+@if (!string.IsNullOrEmpty(Model.IisErrorMessage))
+{
+    <div class="alert alert-warning">@Model.IisErrorMessage</div>
+}
+
+<!-- Neue Anwendung hinzufügen -->
+<form method="post" asp-page-handler="Add">
+    <div class="form-row">
+        <div class="form-group col-md-4">
+            <label asp-for="NewApplication.Name">Name</label>
+            <input asp-for="NewApplication.Name" class="form-control" />
+            <span asp-validation-for="NewApplication.Name" class="text-danger"></span>
+        </div>
+        <div class="form-group col-md-4">
+            <label asp-for="NewApplication.IISAppPoolName">IIS AppPool Name</label>
+            <input asp-for="NewApplication.IISAppPoolName" class="form-control" />
+        </div>
+        <div class="form-group col-md-2">
+            <label asp-for="NewApplication.IsIISApplication">IIS?</label>
+            <input asp-for="NewApplication.IsIISApplication" type="checkbox" class="form-control" />
+        </div>
+        <div class="form-group col-md-2 align-self-end">
+            <button type="submit" class="btn btn-primary">Hinzufügen</button>
+        </div>
     </div>
-</td>
+    <input type="hidden" asp-for="NewApplication.ExecutablePath" />
+</form>
+
+<hr />
+
+<!-- Liste der Anwendungen -->
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Letzter Start</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var app in Model.Applications)
+        {
+        <tr>
+            <td style="width:45%">
+                @app.Name
+                @if (Model.CanManage(app.Id))
+                {
+                    <span class="badge bg-success ml-2">Du bist Owner</span>
+                }
+                <br />
+                <small class="text-muted">@app.IISAppPoolName</small>
+            </td>
+            <td style="width:10%">
+                @if (app.IsStarted)
+                {
+                    <span class="text-success">Gestartet</span>
+                }
+                else
+                {
+                    <span class="text-danger">Gestoppt</span>
+                }
+            </td>
+            <td style="width:15%">@app.LastLaunchTime.ToString("g")</td>
+            <td style="width:20%">
+                @if (Model.CanManage(app.Id))
+                {
+                    <form method="post" asp-page-handler="Start" style="display:inline">
+                        <input type="hidden" name="applicationId" value="@app.Id" />
+                        <button type="submit" class="btn btn-success btn-sm" title="Starten">▶️</button>
+                    </form>
+                    <form method="post" asp-page-handler="Stop" style="display:inline">
+                        <input type="hidden" name="applicationId" value="@app.Id" />
+                        <button type="submit" class="btn btn-warning btn-sm" title="Stoppen">⏹️</button>
+                    </form>
+                    <form method="post" asp-page-handler="Restart" style="display:inline">
+                        <input type="hidden" name="applicationId" value="@app.Id" />
+                        <button type="submit" class="btn btn-secondary btn-sm" title="Reboot">🔁</button>
+                    </form>
+                }
+                else
+                {
+                    <!-- Nicht berechtigt: nur Status anzeigen (Buttons disabled) -->
+                    <button class="btn btn-success btn-sm" disabled title="Starten">▶️</button>
+                    <button class="btn btn-warning btn-sm" disabled title="Stoppen">⏹️</button>
+                    <button class="btn btn-secondary btn-sm" disabled title="Reboot">🔁</button>
+                }
+                @if (app.IsIISApplication && !string.IsNullOrWhiteSpace(app.IISAppPoolName))
+                {
+                    if (Model.CanManage(app.Id))
+                    {
+                        <form method="post" asp-page-handler="Recycle" style="display:inline">
+                            <input type="hidden" name="applicationId" value="@app.Id" />
+                            <button type="submit" class="btn btn-info btn-sm" title="AppPool recyceln">♻️</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <button class="btn btn-info btn-sm" disabled title="AppPool recyceln">♻️</button>
+                    }
+                }
+            </td>
+
+            <td style="width:20%">
+                <!-- Owner assignment (visible only to global admins) -->
+                @if (Model.CurrentUserIsGlobalAdmin)
+                {
+                    <form method="post" asp-page-handler="AddOwner" class="form-inline">
+                        <input type="hidden" name="OwnerApplicationId" value="@app.Id" />
+                        <select name="OwnerUserId" class="form-control form-control-sm mr-1">
+                            <option value="">— wählen —</option>
+                            @foreach (var u in Model.Users)
+                            {
+                                <option value="@u.Id">@u.Vorname @u.Nachname (@u.UserName)</option>
+                            }
+                        </select>
+                        <button type="submit" class="btn btn-outline-primary btn-sm">Assign</button>
+                    </form>
+                }
+
+                <!-- CPU chart (right side) -->
+                <div class="mt-2">
+                    <canvas id="cpuChart-@app.Id" data-appid="@app.Id" width="120" height="80"></canvas>
+                </div>
+            </td>
+        </tr>
+        }
+    </tbody>
+</table>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Simple rendering: if CPU loads available in Model.CpuLoads, map by index
+    (function(){
+        try{
+            var loads = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CpuLoads));
+            var names = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AppPoolNames));
+            // For each canvas, attempt to find matching app pool name by index
+            document.querySelectorAll('canvas[id^="cpuChart-"]').forEach(function(canvas){
+                var appId = canvas.dataset.appid;
+                // naive: draw a placeholder if no data
+                var ctx = canvas.getContext('2d');
+                var val = 0;
+                // attempt to find by name match (if app pool names map to application IISAppPoolName)
+                // fallback: use index-based mapping
+                var idx = 0;
+                if (loads && loads.length>0){ idx = 0; val = loads[idx]; }
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { datasets: [{ data: [val, 100-val], backgroundColor: ['#4caf50','#e0e0e0'] }], labels: ['CPU','Rest']},
+                    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } }, elements: { center: { } } }
+                });
+            });
+        } catch(e){ console.debug(e); }
+    })();
+</script>

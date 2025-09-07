@@ -6,3 +6,5 @@ git commit -m "commit"
 git remote add origin https://github.com/<USERNAME>/<REPO>.git
 
 git push -u origin main
+
+git status --branch --porcelain; git branch --show-current; git remote -v; git add -A; git commit -m "Enable Windows Authentication (Negotiate), owner checks and UI badge"; git push

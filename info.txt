@@ -1,3 +1,8 @@
+Schritt 5: Die CPU-Auslastung wird jetzt als Donut-Chart (Kreisdiagramm) mit Chart.js für jede laufende Anwendung angezeigt.
+Schritt 4: Die CPU-Auslastung der laufenden Anwendungen kann jetzt über die ProcessId ermittelt werden (ProgramManagerService.cs).
+Schritt 3: Die History/Audit-Logik ist aktiv. Jede Aktion (Start, Stop, Restart, Recycle) wird mit Benutzer und Zeit dokumentiert und im Verlauf angezeigt.
+Schritt 2: AppOwner dürfen jetzt die ApplicationManagement-Seite sehen und Apps steuern (Start, Stop, Restart, Recycle). Löschen bleibt deaktiviert.
+Schritt 1: Console.WriteLine durch _logger.LogInformation und _logger.LogError ersetzt für IIS-kompatibles Logging (ProgramManagerService.cs).
  🤔🤔
 
 => 🚀 AppManager – Entwicklerdokumentation
@@ -318,3 +323,4 @@ git push -u origin main
 --- 
 
 dotnet publish -r win-x64 --self-contained -o "C:\Users\user\OneDrive\Desktop\OrdnerPush1"
+dotnet add package Microsoft.AspNetCore.Authentication.Negotiate

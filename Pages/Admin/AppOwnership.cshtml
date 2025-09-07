@@ -285,78 +285,6 @@
         </script>
     }
 }
-<th>📅 Erstellt</th>
-<th>⚙️ Aktionen</th>
-</tr>
-</thead>
-<tbody>
-    @foreach (var ownership in Model.AppOwnerships)
-    {
-        <tr>
-            <td>
-                <strong>@ownership.User.Vorname @ownership.User.Nachname</strong>
-                <br><small class="text-muted">@ownership.User.UserName</small>
-            </td>
-            <td>
-                <strong>@ownership.Application.Name</strong>
-                <br><small class="text-muted">@ownership.Application.Description</small>
-            </td>
-            <td>
-                <code>@ownership.WindowsUsername</code>
-            </td>
-            <td>
-                @if (!string.IsNullOrEmpty(ownership.IISAppPoolName))
-                {
-                    <span class="badge bg-info">@ownership.IISAppPoolName</span>
-                }
-                else
-                {
-                    <span class="text-muted">-</span>
-                }
-            </td>
-            <td>
-                @ownership.CreatedAt.ToString("dd.MM.yyyy HH:mm")
-                <br><small class="text-muted">von @ownership.CreatedBy</small>
-            </td>
-            <td>
-                <form method="post" style="display: inline;">
-                    <input type="hidden" name="ownershipId" value="@ownership.Id" />
-                    <button type="submit" asp-page-handler="Delete" class="btn btn-sm btn-outline-danger"
-                        onclick="return confirm('Berechtigung wirklich entfernen?')">
-                        🗑️ Entfernen
-                    </button>
-                </form>
-            </td>
-        </tr>
-    }
-</tbody>
-</table>
-</div>
-}
-else
-{
-<div class="text-center py-5">
-    <div class="mb-3">
-        <span style="font-size: 4rem;">📋</span>
-    </div>
-    <h4>Keine App-Owner Berechtigungen vorhanden</h4>
-    <p class="text-muted">Fügen Sie die erste Berechtigung hinzu, um Benutzern den Zugriff auf
-        Anwendungen zu gewähren.</p>
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOwnershipModal">
-        ➕ Erste Berechtigung hinzufügen
-    </button>
-</div>
-}
-Klicken Sie auf "Neue Berechtigung hinzufügen", um zu starten.</p>
-</div>
-}
-</div>
-</div>
-</div>
-</div>
-</div>
-
-
 
 <style>
     .card {
@@ -468,4 +396,4 @@ Klicken Sie auf "Neue Berechtigung hinzufügen", um zu starten.</p>
             document.getElementById('deleteOwnershipId').value = ownershipId;
         });
     });
-</script></div>
+</script>

@@ -5,7 +5,7 @@ param(
     [string]$SiteName = "AppManager",
     [string]$AppPoolName = "AppManagerPool", 
     [string]$Port = "80",
-    [string]$SitePath = "C:\inetpub\wwwroot\AppManager"
+    [string]$SitePath = "C:\\inetpub\\wwwroot\\AppManager"
 )
 
 Write-Host "🚀 AppManager Server Installation gestartet..." -ForegroundColor Green
@@ -59,17 +59,15 @@ Write-Host "🏊 Erstelle Application Pool: $AppPoolName..." -ForegroundColor Ye
 try {
     Import-Module WebAdministration
     
-    # Prüfen ob Pool bereits existiert
     if (Get-IISAppPool -Name $AppPoolName -ErrorAction SilentlyContinue) {
         Write-Host "ℹ️ Application Pool existiert bereits, wird neu konfiguriert..." -ForegroundColor Blue
         Remove-WebAppPool -Name $AppPoolName
     }
     
-    # Neuen Pool erstellen
     New-WebAppPool -Name $AppPoolName
-    Set-ItemProperty -Path "IIS:\AppPools\$AppPoolName" -Name "managedRuntimeVersion" -Value ""
-    Set-ItemProperty -Path "IIS:\AppPools\$AppPoolName" -Name "processModel.identityType" -Value "ApplicationPoolIdentity"
-    Set-ItemProperty -Path "IIS:\AppPools\$AppPoolName" -Name "recycling.periodicRestart.time" -Value "00:00:00"
+    Set-ItemProperty -Path "IIS:\\AppPools\\$AppPoolName" -Name "managedRuntimeVersion" -Value ""
+    Set-ItemProperty -Path "IIS:\\AppPools\\$AppPoolName" -Name "processModel.identityType" -Value "ApplicationPoolIdentity"
+    Set-ItemProperty -Path "IIS:\\AppPools\\$AppPoolName" -Name "recycling.periodicRestart.time" -Value "00:00:00"
     
     Write-Host "✅ Application Pool erstellt" -ForegroundColor Green
 }
@@ -81,13 +79,11 @@ catch {
 # 5. Website erstellen
 Write-Host "🌐 Erstelle Website: $SiteName..." -ForegroundColor Yellow
 try {
-    # Prüfen ob Site bereits existiert
     if (Get-Website -Name $SiteName -ErrorAction SilentlyContinue) {
         Write-Host "ℹ️ Website existiert bereits, wird entfernt..." -ForegroundColor Blue
         Remove-Website -Name $SiteName
     }
     
-    # Website erstellen
     New-Website -Name $SiteName -Port $Port -PhysicalPath $SitePath -ApplicationPool $AppPoolName
     
     Write-Host "✅ Website erstellt" -ForegroundColor Green
@@ -102,7 +98,7 @@ Write-Host "🔐 Setze Ordner-Berechtigungen..." -ForegroundColor Yellow
 try {
     if (Test-Path $SitePath) {
         $acl = Get-Acl $SitePath
-        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("IIS AppPool\$AppPoolName", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("IIS AppPool\\$AppPoolName", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
         $acl.SetAccessRule($accessRule)
         Set-Acl $SitePath $acl
         
@@ -114,7 +110,7 @@ try {
         New-Item -ItemType Directory -Path $SitePath -Force
         
         $acl = Get-Acl $SitePath
-        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("IIS AppPool\$AppPoolName", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("IIS AppPool\\$AppPoolName", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
         $acl.SetAccessRule($accessRule)
         Set-Acl $SitePath $acl
         
@@ -129,7 +125,6 @@ catch {
 # 7. Firewall-Regeln
 Write-Host "🔥 Konfiguriere Firewall..." -ForegroundColor Yellow
 try {
-    # HTTP Port
     $httpRule = Get-NetFirewallRule -DisplayName "AppManager HTTP" -ErrorAction SilentlyContinue
     if (-not $httpRule) {
         New-NetFirewallRule -DisplayName "AppManager HTTP" -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow
@@ -139,7 +134,6 @@ try {
         Write-Host "ℹ️ Firewall-Regel für HTTP existiert bereits" -ForegroundColor Blue
     }
     
-    # HTTPS Port (optional)
     $httpsRule = Get-NetFirewallRule -DisplayName "AppManager HTTPS" -ErrorAction SilentlyContinue
     if (-not $httpsRule) {
         New-NetFirewallRule -DisplayName "AppManager HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow

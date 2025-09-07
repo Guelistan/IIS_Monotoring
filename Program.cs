@@ -14,6 +14,8 @@ using AppManager.Services;
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 
 
 
@@ -67,8 +69,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Account/Login";
 });
 
-// 📄 Razor Pages aktivieren
-builder.Services.AddRazorPages();
+// 📄 Razor Pages aktivieren (configured later with options)
 
 // 📋 HTTP-Logging aktivieren
 builder.Services.AddHttpLogging(logging =>
@@ -90,7 +91,39 @@ if (!builder.Environment.IsDevelopment())
 // ⚙️ HTTPS-Redirect konfigurierbar machen (Standard: in Production an, in Development aus)
 var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
 
+builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+       .AddNegotiate();
+
+builder.Services.AddAuthorization(options =>
+{
+    // Nur Admin-Bereich schützen oder FallbackPolicy setzen
+    // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+});
+
+// RazorPages: /Admin schützen (configure RazorPages with conventions)
+builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
+{
+    opts.Conventions.AuthorizeFolder("/Admin");
+});
+
 var app = builder.Build();
+
+// --- automatisch Migrationen anwenden (nur in Dev/Test, optional) ---
+using (var scope = app.Services.CreateScope())
+{
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+        logger.LogInformation("Database migrated/applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Fehler beim Anwenden der DB-Migrationen.");
+        throw;
+    }
+}
 
 // ⚠️ Fehlerbehandlung
 if (!app.Environment.IsDevelopment())

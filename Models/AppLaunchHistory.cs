@@ -30,5 +30,6 @@ namespace AppManager.Models
 
         // Navigation Properties
         public virtual AppUser? User { get; set; }
+
     }
 }

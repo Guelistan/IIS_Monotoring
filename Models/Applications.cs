@@ -54,6 +54,6 @@ namespace AppManager.Models
         public string Version { get; set; }
         public string Category { get; set; }
         public string Tags { get; set; } // Kommagetrennte Tags
-        public string Path { get; set; } // Hinzugefügtes Feld
+    // 'Path' removed: use ExecutablePath instead
     }
 }

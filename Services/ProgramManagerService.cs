@@ -2,18 +2,66 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using AppManager.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AppManager.Services
 {
     public class ProgramManagerService
     {
+        private readonly Microsoft.Extensions.Logging.ILogger<ProgramManagerService> _logger;
+
+        public ProgramManagerService(Microsoft.Extensions.Logging.ILogger<ProgramManagerService> logger)
+        {
+            _logger = logger;
+        }
+        #region CPU Usage
+
+        public double? GetCpuUsageForProcess(int processId)
+        {
+            try
+            {
+                using (var cpuCounter = new PerformanceCounter("Process", "% Processor Time", GetProcessInstanceName(processId), true))
+                {
+                    // Erstes Abfragen gibt oft 0 zurück, daher kurz warten
+                    cpuCounter.NextValue();
+                    System.Threading.Thread.Sleep(500);
+                    return Math.Round(cpuCounter.NextValue() / Environment.ProcessorCount, 2);
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private string GetProcessInstanceName(int processId)
+        {
+            var process = Process.GetProcessById(processId);
+            var processName = process.ProcessName;
+            var category = new PerformanceCounterCategory("Process");
+            var instances = category.GetInstanceNames();
+            foreach (var instance in instances)
+            {
+                using (var counter = new PerformanceCounter("Process", "ID Process", instance, true))
+                {
+                    if ((int)counter.RawValue == processId)
+                        return instance;
+                }
+            }
+            return processName;
+        }
+
+        #endregion
+
+        #region Program Control
+
         public async Task<bool> StartProgramAsync(Application app)
         {
             return await Task.Run(() =>
             {
                 try
                 {
-                    Console.WriteLine($"🚀 Versuche zu starten: {app.ExecutablePath}");
+                    _logger.LogInformation($"🚀 Versuche zu starten: {app.ExecutablePath}");
                     
                     var startInfo = new ProcessStartInfo
                     {
@@ -36,16 +84,16 @@ namespace AppManager.Services
                     {
                         app.ProcessId = process.Id;
                         app.IsStarted = true;
-                        Console.WriteLine($"✅ Erfolgreich gestartet! PID: {process.Id}");
+                        _logger.LogInformation($"✅ Erfolgreich gestartet! PID: {process.Id}");
                         return true;
                     }
 
-                    Console.WriteLine("❌ Process.Start() gab null zurück");
+                    _logger.LogError("❌ Process.Start() gab null zurück");
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"❌ FEHLER beim Starten von {app.Name}: {ex.Message}");
+                    _logger.LogError($"❌ FEHLER beim Starten von {app.Name}: {ex.Message}");
                     return false;
                 }
             });
@@ -72,12 +120,12 @@ namespace AppManager.Services
 
                     app.IsStarted = false;
                     app.ProcessId = null;
-                    Console.WriteLine($"⏹️ {app.Name} gestoppt");
+                    _logger.LogInformation($"⏹️ {app.Name} gestoppt");
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"❌ Fehler beim Stoppen: {ex.Message}");
+                    _logger.LogError($"❌ Fehler beim Stoppen: {ex.Message}");
                     app.IsStarted = false;
                     app.ProcessId = null;
                     return false;
@@ -87,10 +135,12 @@ namespace AppManager.Services
 
         public async Task<bool> RestartProgramAsync(Application app)
         {
-            Console.WriteLine($"🔄 Neustart von {app.Name}...");
+            _logger.LogInformation($"🔄 Neustart von {app.Name}...");
             await StopProgramAsync(app);
             await Task.Delay(2000);
             return await StartProgramAsync(app);
         }
+
+        #endregion
     }
 }
