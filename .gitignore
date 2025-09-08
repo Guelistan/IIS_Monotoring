@@ -1,0 +1,78 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build artifacts
+bin/
+obj/
+
+# Publish folder(s)
+publish/
+publish/**
+
+# Rider
+.idea/
+
+# Rider and VSCode caches
+.vscode/
+
+# Visual Studio temporary files
+*.cache
+*.ilk
+*.log
+*.obj
+*.pch
+*.pdb
+*.ipch
+*.iobj
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# Dotnet publish output
+AppManager_*/
+True/
+
+# SQLite local DB
+local.db
+local.db-shm
+local.db-wal
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Others
+*.vsix
+*.dbmdl
+
+# Logs
+*.log
+logs/
+
+# publish output
+publish/
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Ignore Rider caches
+.idea/
+
+# node modules (if any)
+node_modules/
+
+# JetBrains
+*.iml
+
+# End
