@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Diagnostics;
-using Microsoft.Web.Administration; // Für IIS-Verwaltung
+using AppManager.Services;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -13,15 +13,17 @@ namespace AppManager.Pages.Admin
 {
     public class ApplicationManagementModel : PageModel
     {
-    private readonly ILogger<ApplicationManagementModel> _logger;
-    private readonly AppManager.Data.AppDbContext _db;
-    private readonly UserManager<AppManager.Data.AppUser> _userManager;
+        private readonly ILogger<ApplicationManagementModel> _logger;
+        private readonly AppManager.Data.AppDbContext _db;
+        private readonly UserManager<AppManager.Data.AppUser> _userManager;
+        private readonly AppService _appService;
 
-        public ApplicationManagementModel(ILogger<ApplicationManagementModel> logger, AppManager.Data.AppDbContext db, UserManager<AppManager.Data.AppUser> userManager)
+        public ApplicationManagementModel(ILogger<ApplicationManagementModel> logger, AppManager.Data.AppDbContext db, UserManager<AppManager.Data.AppUser> userManager, AppService appService)
         {
             _logger = logger;
             _db = db;
             _userManager = userManager;
+            _appService = appService;
         }
 
         public List<AppManager.Models.Application> Applications { get; set; } = new();
@@ -158,15 +160,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    using var server = new ServerManager();
-                    var pool = server.ApplicationPools[app.IISAppPoolName];
-                    pool?.Start();
-                    TempData["SuccessMessage"] = "Anwendung gestartet.";
-                }
-                catch (UnauthorizedAccessException uaEx)
-                {
-                    _logger.LogError(uaEx, "Keine Berechtigung zum Starten des AppPools {Pool}", app.IISAppPoolName);
-                    TempData["ErrorMessage"] = "Keine Berechtigung, IIS-Konfiguration zu ändern. Starten Sie die App als Benutzer mit ausreichenden Rechten auf dem IIS-Host.";
+                    if (!_appService.TryStartIisAppPool(app.IISAppPoolName, out var err))
+                    {
+                        _logger.LogWarning("TryStartIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
+                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Starten des AppPools." : err;
+                    }
+                    else
+                    {
+                        TempData["SuccessMessage"] = "Anwendung gestartet.";
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -208,10 +210,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    using var server = new ServerManager();
-                    var pool = server.ApplicationPools[app.IISAppPoolName];
-                    pool?.Stop();
-                    TempData["SuccessMessage"] = "Anwendung gestoppt.";
+                    if (!_appService.TryStopIisAppPool(app.IISAppPoolName, out var err))
+                    {
+                        _logger.LogWarning("TryStopIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
+                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Stoppen des AppPools." : err;
+                    }
+                    else
+                    {
+                        TempData["SuccessMessage"] = "Anwendung gestoppt.";
+                    }
                 }
                 catch (UnauthorizedAccessException uaEx)
                 {
@@ -258,10 +265,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    using var server = new ServerManager();
-                    var pool = server.ApplicationPools[app.IISAppPoolName];
-                    pool?.Recycle();
-                    TempData["SuccessMessage"] = "Anwendung neugestartet.";
+                    if (!_appService.TryRecycleIisAppPool(app.IISAppPoolName, out var err))
+                    {
+                        _logger.LogWarning("TryRecycleIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
+                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Recycle des AppPools." : err;
+                    }
+                    else
+                    {
+                        TempData["SuccessMessage"] = "Anwendung neugestartet.";
+                    }
                 }
                 catch (UnauthorizedAccessException uaEx)
                 {
@@ -308,10 +320,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    using var server = new ServerManager();
-                    var pool = server.ApplicationPools[app.IISAppPoolName];
-                    pool?.Recycle();
-                    TempData["SuccessMessage"] = "AppPool recycelt.";
+                    if (!_appService.TryRecycleIisAppPool(app.IISAppPoolName, out var err))
+                    {
+                        _logger.LogWarning("TryRecycleIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
+                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Recycle des AppPools." : err;
+                    }
+                    else
+                    {
+                        TempData["SuccessMessage"] = "AppPool recycelt.";
+                    }
                 }
                 catch (UnauthorizedAccessException uaEx)
                 {
@@ -336,38 +353,25 @@ namespace AppManager.Pages.Admin
             var result = new List<AppManager.Models.Application>();
             try
             {
-                using var server = new ServerManager();
-                foreach (var site in server.Sites)
+                if (!_appService.TryListIisAppPools(out var pools, out var err))
                 {
-                    foreach (var app in site.Applications)
-                    {
-                        bool isStarted = false;
-                        try
-                        {
-                            isStarted = site.State == ObjectState.Started;
-                        }
-                        catch (NotImplementedException)
-                        {
-                            // Fallback: Status nicht verfügbar
-                            isStarted = false;
-                        }
-
-                        result.Add(new AppManager.Models.Application
-                        {
-                            Id = Guid.NewGuid(),
-                            Name = app.Path,
-                            IsIISApplication = true,
-                            IISAppPoolName = app.ApplicationPoolName,
-                            IsStarted = isStarted,
-                            LastLaunchTime = DateTime.Now
-                        });
-                    }
+                    _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
+                    IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der IIS-Anwendungen." : err;
+                    return result;
                 }
-            }
-            catch (UnauthorizedAccessException uaEx)
-            {
-                _logger.LogError(uaEx, "Fehler beim Laden der IIS-Anwendungen aufgrund fehlender Berechtigungen");
-                IisErrorMessage = "Fehler: Die IIS-Konfigurationsdatei kann nicht gelesen werden (unzureichende Berechtigungen).";
+
+                foreach (var p in pools)
+                {
+                    result.Add(new AppManager.Models.Application
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = p.Name,
+                        IsIISApplication = true,
+                        IISAppPoolName = p.Name,
+                        IsStarted = string.Equals(p.State, "Started", StringComparison.OrdinalIgnoreCase),
+                        LastLaunchTime = DateTime.Now
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -383,18 +387,19 @@ namespace AppManager.Pages.Admin
             AppPoolNames.Clear();
             try
             {
-                using var server = new ServerManager();
-                foreach (var pool in server.ApplicationPools)
+                if (!_appService.TryListIisAppPools(out var pools, out var err))
                 {
-                    AppPoolNames.Add(pool.Name);
-                    float cpu = GetCpuUsageForAppPool(pool.Name);
+                    _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
+                    IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der CPU-Daten." : err;
+                    return;
+                }
+
+                foreach (var p in pools)
+                {
+                    AppPoolNames.Add(p.Name);
+                    float cpu = GetCpuUsageForAppPool(p.Name);
                     CpuLoads.Add(cpu);
                 }
-            }
-            catch (UnauthorizedAccessException uaEx)
-            {
-                _logger.LogError(uaEx, "Keine Berechtigung zum Lesen der IIS-AppPools");
-                IisErrorMessage = "Fehler: Keine Berechtigung, IIS-AppPools zu lesen. Führen Sie die App auf dem IIS-Host als Admin aus.";
             }
             catch (Exception ex)
             {

@@ -91,8 +91,16 @@ if (!builder.Environment.IsDevelopment())
 // ⚙️ HTTPS-Redirect konfigurierbar machen (Standard: in Production an, in Development aus)
 var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
 
-builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-       .AddNegotiate();
+// Keep Identity (cookie) as the default authentication/challenge scheme
+// and register Negotiate as an additional scheme so Windows auth is available
+builder.Services.AddAuthentication(options =>
+{
+    // Use Identity's application cookie as the default authentication and challenge scheme
+    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
+    options.DefaultChallengeScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
+})
+    .AddNegotiate();
 
 builder.Services.AddAuthorization(options =>
 {
