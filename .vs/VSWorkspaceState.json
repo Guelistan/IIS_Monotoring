@@ -1,12 +1,7 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\Data",
-    "\\Migrations",
-    "\\Models",
-    "\\Services",
-    "\\wwwroot"
+    ""
   ],
-  "SelectedNode": "\\Services\\IISService.cs",
+  "SelectedNode": "\\AppManager.sln",
   "PreviewInSolutionExplorer": true
 }

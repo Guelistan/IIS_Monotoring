@@ -15,12 +15,10 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Authentication.Negotiate;
-
-
+// using Microsoft.AspNetCore.Authentication.Negotiate; // entfernt
+using Microsoft.AspNetCore.Server.IISIntegration;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 // 📧 Fake E-Mail-Sender für Entwicklung
 builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
@@ -46,13 +44,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(cs);
 });
 
-// 🔐 Identity-Konfiguration
+// 🔐 Identity-Konfiguration (für Daten/Token weiterverwendet, aber nicht für Windows-Login)
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     {
-        options.SignIn.RequireConfirmedEmail = false;  // Username-Login ohne E-Mail-Bestätigung
-        options.User.RequireUniqueEmail = false;       // Username als primärer Login
-
-        // 🔓 Gelockerte Passwort-Richtlinien für einfache Registrierung
+        options.SignIn.RequireConfirmedEmail = false;
+        options.User.RequireUniqueEmail = false;
         options.Password.RequireDigit = false;
         options.Password.RequiredLength = 3;
         options.Password.RequireNonAlphanumeric = false;
@@ -62,53 +58,39 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-// 🍪 Authentifizierung via Cookie
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.LoginPath = "/Account/Login";
-    options.AccessDeniedPath = "/Account/Login";
-});
+// KEINE Cookie-Login-Umleitung für Windows-Auth
+// builder.Services.ConfigureApplicationCookie(...);
 
-// 📄 Razor Pages aktivieren (configured later with options)
-
-// 📋 HTTP-Logging aktivieren
+// 📋 HTTP-Logging
 builder.Services.AddHttpLogging(logging =>
 {
     logging.LoggingFields = HttpLoggingFields.All;
 });
 
-// Fehlende Service-Registrierung hinzufügen:
+// DI
 builder.Services.AddScoped<ProgramManagerService>();
 builder.Services.AddScoped<IISService>();
 builder.Services.AddScoped<AppService>();
 
-// 🌐 URLs für Non-Development-Umgebung festlegen
+// 🌐 URLs für Non-Development-Umgebung (bei IIS egal, wird ignoriert)
 if (!builder.Environment.IsDevelopment())
 {
     builder.WebHost.UseUrls("http://localhost:5130", "https://localhost:5007");
 }
 
-// ⚙️ HTTPS-Redirect konfigurierbar machen (Standard: in Production an, in Development aus)
+// ⚙️ HTTPS-Redirect
 var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
 
-// Keep Identity (cookie) as the default authentication/challenge scheme
-// and register Negotiate as an additional scheme so Windows auth is available
-builder.Services.AddAuthentication(options =>
-{
-    // Use Identity's application cookie as the default authentication and challenge scheme
-    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
-    options.DefaultChallengeScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
-    options.DefaultSignInScheme = Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme;
-})
-    .AddNegotiate();
+// WICHTIG: IIS als Authentifizierungsschema setzen (keine Negotiate-Middleware!)
+builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme);
 
 builder.Services.AddAuthorization(options =>
 {
-    // Nur Admin-Bereich schützen oder FallbackPolicy setzen
+    // Beispiel: Admin-Ordner nur authentifizierten Benutzern erlauben
     // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
-// RazorPages: /Admin schützen (configure RazorPages with conventions)
+// Razor Pages: /Admin schützen
 builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
 {
     opts.Conventions.AuthorizeFolder("/Admin");
@@ -116,7 +98,7 @@ builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
 
 var app = builder.Build();
 
-// --- automatisch Migrationen anwenden (nur in Dev/Test, optional) ---
+// --- Migrationen anwenden ---
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -142,13 +124,12 @@ if (!app.Environment.IsDevelopment())
         app.UseHsts();
     }
 }
-// 🔒 HTTPS nur wenn aktiviert
 if (enforceHttps)
 {
     app.UseHttpsRedirection();
 }
 
-// 🧪 Initiales Datenbank-Seeding (Rollen, Admin, Anwendungen)
+// 🧪 Initiales Datenbank-Seeding (unverändert)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -158,7 +139,6 @@ using (var scope = app.Services.CreateScope())
 
     context.Database.Migrate();
 
-    // 🔧 Korrigiere fehlerhafte App-Pfade direkt in der Datenbank
     var existingApps = context.Applications.ToList();
     foreach (var appToFix in existingApps)
     {
@@ -191,7 +171,6 @@ using (var scope = app.Services.CreateScope())
     }
     context.SaveChanges();
 
-    // Anwendungen seeden
     if (!context.Applications.Any())
     {
         var apps = new List<Application>
@@ -207,8 +186,6 @@ using (var scope = app.Services.CreateScope())
         context.SaveChanges();
     }
 
-
-
     var allApps = context.Applications.ToList();
     Console.WriteLine("Apps in DB:");
     foreach (var a in allApps)
@@ -216,7 +193,6 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"- {a.Name}");
     }
 
-    // Rollen anlegen
     string[] roles = { "Admin", "SuperAdmin" };
     foreach (var role in roles)
     {
@@ -224,7 +200,6 @@ using (var scope = app.Services.CreateScope())
             await roleManager.CreateAsync(new IdentityRole(role));
     }
 
-    // Hauptadmin anlegen
     var username = "admin";
     var email = "admin@appmanager.local";
     var password = "Admin123!";
@@ -250,16 +225,13 @@ using (var scope = app.Services.CreateScope())
         await userManager.AddToRoleAsync(admin, "SuperAdmin");
     }
 
-    // 🧪 Test-Daten nur für Development
     if (app.Environment.IsDevelopment())
     {
         await AppManager.TestDataSeeder.SeedTestDataAsync(services);
     }
 
-    // 🚀 Produktions-Basisdaten für alle Umgebungen
     await AppManager.ProductionSeeder.SeedEssentialDataAsync(services);
 
-    // 🔍 Debug: Benutzer-Datenbank überprüfen
     Console.WriteLine();
     using (var debugScope = services.CreateScope())
     {
@@ -272,47 +244,26 @@ using (var scope = app.Services.CreateScope())
 app.UseStaticFiles();
 app.UseRouting();
 app.UseHttpLogging();
-app.UseAuthentication();
+// app.UseAuthentication(); // für reine Windows-Auth nicht nötig
 app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 
-// 🌐 Browser automatisch öffnen (nur bei Release-Builds)
 if (!app.Environment.IsDevelopment())
 {
     Console.WriteLine($"🌐 Server wird gestartet...");
     Console.WriteLine($"🌐 Browser wird in 3 Sekunden geöffnet...");
-
-    // Browser mit Verzögerung öffnen - nach dem Server-Start
     _ = Task.Run(async () =>
     {
-        await Task.Delay(3000); // 3 Sekunden warten bis Server sicher bereit ist
-
+        await Task.Delay(3000);
         try
         {
-            // Tatsächliche Server-URLs ermitteln
             var serverUrls = app.Urls.ToList();
-
-            string url;
-            if (serverUrls.Any())
-            {
-                // Bevorzuge HTTPS, falls verfügbar
-                url = serverUrls.FirstOrDefault(u => u.StartsWith("https")) ?? serverUrls.First();
-            }
-            else
-            {
-                // Fallback zu Standardports
-                url = "https://localhost:5007";
-            }
-
+            string url = serverUrls.Any()
+                ? (serverUrls.FirstOrDefault(u => u.StartsWith("https")) ?? serverUrls.First())
+                : "https://localhost:5007";
             Console.WriteLine($"🌐 Öffne Browser: {url}");
-
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true
-            });
-
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
             Console.WriteLine($"✅ Browser geöffnet: {url}");
         }
         catch (Exception ex)
@@ -325,5 +276,4 @@ if (!app.Environment.IsDevelopment())
     });
 }
 
-// 🚀 Anwendung starten
 app.Run();

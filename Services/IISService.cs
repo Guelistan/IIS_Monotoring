@@ -327,6 +327,27 @@ namespace AppManager.Services
             }
             return appPoolNames;
         }
+
+        public List<int> GetWorkerProcessIds(string appPoolName)
+        {
+            try
+            {
+                using (var serverManager = new ServerManager())
+                {
+                    var pool = serverManager.ApplicationPools[appPoolName];
+                    if (pool == null)
+                        return new List<int>();
+
+                    // WorkerProcesses kann je nach Zustand leer sein (AppPool gestoppt)
+                    return pool.WorkerProcesses.Select(wp => wp.ProcessId).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fehler beim Ermitteln der Worker-Prozesse für AppPool '{appPoolName}': {ex.Message}");
+                return new List<int>();
+            }
+        }
     }
 
     public class IISApplicationInfo
