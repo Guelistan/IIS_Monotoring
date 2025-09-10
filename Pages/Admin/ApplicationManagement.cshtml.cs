@@ -1,16 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Authorization;
 using AppManager.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using AppManager.Services;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+
 namespace AppManager.Pages.Admin
 {
+    [Authorize]
     public class ApplicationManagementModel : PageModel
     {
         private readonly ILogger<ApplicationManagementModel> _logger;
@@ -34,29 +39,38 @@ namespace AppManager.Pages.Admin
         // Load page data and authorization info
         public async Task OnGetAsync()
         {
-            // Load DB applications (prefer persisted entries) and IIS list as fallback
-            Applications = _db.Applications.OrderBy(a => a.Name).ToList();
-            if (Applications == null || Applications.Count == 0)
+            try
             {
-                Applications = GetIISApplications();
+                // Load DB applications (prefer persisted entries) and IIS list as fallback
+                Applications = await _db.Applications.OrderBy(a => a.Name).ToListAsync();
+                if (Applications == null || Applications.Count == 0)
+                {
+                    Applications = await GetIISApplicationsAsync();
+                }
+
+                await LoadCpuDataAsync();
+
+                // Load users for owner selection
+                Users = await _userManager.Users.Where(u => u.IsActive).OrderBy(u => u.Vorname).ToListAsync();
+
+                // Populate current user and ownership cache for UI authorization checks
+                var currentUser = await ResolveCurrentAppUserAsync();
+                if (currentUser != null)
+                {
+                    CurrentUserId = currentUser.Id;
+                    CurrentUserIsGlobalAdmin = currentUser.IsGlobalAdmin;
+                    var owned = await _db.AppOwnerships
+                        .Where(o => o.UserId == currentUser.Id)
+                        .Select(o => o.ApplicationId)
+                        .ToListAsync();
+                    OwnedApplicationIds = new HashSet<Guid>(owned);
+                }
             }
-
-            LoadCpuData();
-
-            // Load users for owner selection
-            Users = _userManager.Users.Where(u => u.IsActive).OrderBy(u => u.Vorname).ToList();
-
-            // Populate current user and ownership cache for UI authorization checks
-            var currentUser = await ResolveCurrentAppUserAsync();
-            if (currentUser != null)
+            catch (Exception ex)
             {
-                CurrentUserId = currentUser.Id;
-                CurrentUserIsGlobalAdmin = currentUser.IsGlobalAdmin;
-                var owned = _db.AppOwnerships.Where(o => o.UserId == currentUser.Id).Select(o => o.ApplicationId).ToList();
-                OwnedApplicationIds = new HashSet<Guid>(owned);
+                _logger.LogError(ex, "Error loading application management page");
+                TempData["ErrorMessage"] = "Fehler beim Laden der Seite. Details im Log.";
             }
-
-            await Task.CompletedTask;
         }
 
     public List<AppManager.Data.AppUser> Users { get; set; } = new();
@@ -75,28 +89,59 @@ namespace AppManager.Pages.Admin
         [BindProperty]
         public string OwnerUserId { get; set; }
 
-    public async Task<IActionResult> OnPostAddAsync()
+        public async Task<IActionResult> OnPostAddAsync()
         {
-            if (string.IsNullOrWhiteSpace(BindNewApplication.Name))
+            try
             {
-                TempData["ErrorMessage"] = "Name ist erforderlich.";
+                // Input validation
+                if (string.IsNullOrWhiteSpace(BindNewApplication.Name))
+                {
+                    TempData["ErrorMessage"] = "Name ist erforderlich.";
+                    return RedirectToPage();
+                }
+
+                // Sanitize and validate inputs
+                var name = BindNewApplication.Name.Trim();
+                var poolName = BindNewApplication.IISAppPoolName?.Trim() ?? string.Empty;
+                var execPath = BindNewApplication.ExecutablePath?.Trim() ?? string.Empty;
+
+                // Basic security validation for pool name (alphanumeric, dash, underscore)
+                if (!string.IsNullOrEmpty(poolName) && !IsValidPoolName(poolName))
+                {
+                    TempData["ErrorMessage"] = "IIS AppPool-Name enthält ungültige Zeichen.";
+                    return RedirectToPage();
+                }
+
+                // Basic path validation
+                if (!string.IsNullOrEmpty(execPath) && !IsValidPath(execPath))
+                {
+                    TempData["ErrorMessage"] = "Pfad enthält ungültige Zeichen.";
+                    return RedirectToPage();
+                }
+
+                var app = new AppManager.Models.Application
+                {
+                    Id = Guid.NewGuid(),
+                    Name = name,
+                    IISAppPoolName = poolName,
+                    IsIISApplication = BindNewApplication.IsIISApplication,
+                    ExecutablePath = execPath,
+                    LastLaunchTime = DateTime.Now
+                };
+
+                _db.Applications.Add(app);
+                await _db.SaveChangesAsync();
+                
+                _logger.LogInformation("Application {Name} added by user {User}", name, User?.Identity?.Name ?? "Unknown");
+                TempData["SuccessMessage"] = "Anwendung hinzugefügt.";
                 return RedirectToPage();
             }
-
-            var app = new AppManager.Models.Application
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                Name = BindNewApplication.Name,
-                IISAppPoolName = BindNewApplication.IISAppPoolName,
-                IsIISApplication = BindNewApplication.IsIISApplication,
-                ExecutablePath = BindNewApplication.ExecutablePath ?? string.Empty,
-                LastLaunchTime = DateTime.Now
-            };
-
-            _db.Applications.Add(app);
-            await _db.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Anwendung hinzugefügt.";
-            return RedirectToPage();
+                _logger.LogError(ex, "Error adding application");
+                TempData["ErrorMessage"] = "Fehler beim Hinzufügen der Anwendung. Details im Log.";
+                return RedirectToPage();
+            }
         }
 
     public async Task<IActionResult> OnPostAddOwnerAsync()
@@ -133,26 +178,27 @@ namespace AppManager.Pages.Admin
         // Korrigiere die Vergleiche von Guid und int zu Guid und Guid
         public async Task<IActionResult> OnPostStart(Guid applicationId)
         {
-            // Authorization: only App-Owner or global admin allowed
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
+            try
             {
-                TempData["ErrorMessage"] = "Sie müssen angemeldet sein, um diese Aktion durchzuführen.";
-                return RedirectToPage();
-            }
+                // Authorization: only App-Owner or global admin allowed
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    TempData["ErrorMessage"] = "Sie müssen angemeldet sein, um diese Aktion durchzuführen.";
+                    return RedirectToPage();
+                }
 
-            bool allowed = currentUser.IsGlobalAdmin || _db.AppOwnerships.Any(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
-            if (!allowed)
-            {
-                TempData["ErrorMessage"] = "Nur der App-Owner oder ein Administrator darf diese Aktion ausführen.";
-                return RedirectToPage();
-            }
+                bool allowed = currentUser.IsGlobalAdmin || 
+                    await _db.AppOwnerships.AnyAsync(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
+                if (!allowed)
+                {
+                    TempData["ErrorMessage"] = "Nur der App-Owner oder ein Administrator darf diese Aktion ausführen.";
+                    return RedirectToPage();
+                }
 
-            // Load the application from the DB to ensure we have a fresh instance
-            var app = _db.Applications.FirstOrDefault(a => a.Id == applicationId);
-            if (app != null && app.IsIISApplication)
-            {
-                try
+                // Load the application from the DB to ensure we have a fresh instance
+                var app = await _db.Applications.FirstOrDefaultAsync(a => a.Id == applicationId);
+                if (app != null && app.IsIISApplication)
                 {
                     if (string.IsNullOrWhiteSpace(app.IISAppPoolName))
                     {
@@ -167,42 +213,45 @@ namespace AppManager.Pages.Admin
                     }
                     else
                     {
+                        _logger.LogInformation("AppPool {Pool} started by user {User}", app.IISAppPoolName, currentUser.UserName);
                         TempData["SuccessMessage"] = "Anwendung gestartet.";
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(ex, "Fehler beim Starten des AppPools {Pool}", app.IISAppPoolName);
-                    TempData["ErrorMessage"] = "Fehler beim Starten des AppPools. Details im Log.";
+                    TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
                 }
+                return RedirectToPage();
             }
-            else
+            catch (Exception ex)
             {
-                TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
+                _logger.LogError(ex, "Error starting application {ApplicationId}", applicationId);
+                TempData["ErrorMessage"] = "Fehler beim Starten der Anwendung. Details im Log.";
+                return RedirectToPage();
             }
-            return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostStop(Guid applicationId)
         {
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser == null)
+            try
             {
-                TempData["ErrorMessage"] = "Sie müssen angemeldet sein, um diese Aktion durchzuführen.";
-                return RedirectToPage();
-            }
+                var currentUser = await _userManager.GetUserAsync(User);
+                if (currentUser == null)
+                {
+                    TempData["ErrorMessage"] = "Sie müssen angemeldet sein, um diese Aktion durchzuführen.";
+                    return RedirectToPage();
+                }
 
-            bool allowed = currentUser.IsGlobalAdmin || _db.AppOwnerships.Any(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
-            if (!allowed)
-            {
-                TempData["ErrorMessage"] = "Nur der App-Owner oder ein Administrator darf diese Aktion ausführen.";
-                return RedirectToPage();
-            }
+                bool allowed = currentUser.IsGlobalAdmin || 
+                    await _db.AppOwnerships.AnyAsync(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
+                if (!allowed)
+                {
+                    TempData["ErrorMessage"] = "Nur der App-Owner oder ein Administrator darf diese Aktion ausführen.";
+                    return RedirectToPage();
+                }
 
-            var app = _db.Applications.FirstOrDefault(a => a.Id == applicationId);
-            if (app != null && app.IsIISApplication)
-            {
-                try
+                var app = await _db.Applications.FirstOrDefaultAsync(a => a.Id == applicationId);
+                if (app != null && app.IsIISApplication)
                 {
                     if (string.IsNullOrWhiteSpace(app.IISAppPoolName))
                     {
@@ -217,25 +266,22 @@ namespace AppManager.Pages.Admin
                     }
                     else
                     {
+                        _logger.LogInformation("AppPool {Pool} stopped by user {User}", app.IISAppPoolName, currentUser.UserName);
                         TempData["SuccessMessage"] = "Anwendung gestoppt.";
                     }
                 }
-                catch (UnauthorizedAccessException uaEx)
+                else
                 {
-                    _logger.LogError(uaEx, "Keine Berechtigung zum Stoppen des AppPools {Pool}", app.IISAppPoolName);
-                    TempData["ErrorMessage"] = "Keine Berechtigung, IIS-Konfiguration zu ändern.";
+                    TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Fehler beim Stoppen des AppPools {Pool}", app.IISAppPoolName);
-                    TempData["ErrorMessage"] = "Fehler beim Stoppen des AppPools. Details im Log.";
-                }
+                return RedirectToPage();
             }
-            else
+            catch (Exception ex)
             {
-                TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
+                _logger.LogError(ex, "Error stopping application {ApplicationId}", applicationId);
+                TempData["ErrorMessage"] = "Fehler beim Stoppen der Anwendung. Details im Log.";
+                return RedirectToPage();
             }
-            return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostRestart(Guid applicationId)
@@ -348,7 +394,7 @@ namespace AppManager.Pages.Admin
             return RedirectToPage();
         }
 
-        private List<AppManager.Models.Application> GetIISApplications()
+        private Task<List<AppManager.Models.Application>> GetIISApplicationsAsync()
         {
             var result = new List<AppManager.Models.Application>();
             try
@@ -357,7 +403,7 @@ namespace AppManager.Pages.Admin
                 {
                     _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
                     IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der IIS-Anwendungen." : err;
-                    return result;
+                    return Task.FromResult(result);
                 }
 
                 foreach (var p in pools)
@@ -378,10 +424,10 @@ namespace AppManager.Pages.Admin
                 _logger.LogError(ex, "Fehler beim Laden der IIS-Anwendungen");
                 IisErrorMessage = "Fehler beim Laden der IIS-Anwendungen. Details im Log.";
             }
-            return result;
+            return Task.FromResult(result);
         }
 
-        private void LoadCpuData()
+        private Task LoadCpuDataAsync()
         {
             CpuLoads.Clear();
             AppPoolNames.Clear();
@@ -391,7 +437,7 @@ namespace AppManager.Pages.Admin
                 {
                     _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
                     IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der CPU-Daten." : err;
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 foreach (var p in pools)
@@ -406,6 +452,7 @@ namespace AppManager.Pages.Admin
                 _logger.LogError(ex, "Fehler beim Laden der CPU-Daten für IIS-AppPools");
                 IisErrorMessage = "Fehler beim Laden der CPU-Daten. Details im Log.";
             }
+            return Task.CompletedTask;
         }
 
         // Helper used by the Razor view to show/hide action buttons
@@ -416,9 +463,9 @@ namespace AppManager.Pages.Admin
         }
 
         // Try to resolve the current AppUser from the ClaimsPrincipal.
-        // If Identity isn't available but Windows authentication provides a name,
-        // attempt to auto-provision a minimal local AppUser so ownership checks work.
-    private async Task<AppManager.Data.AppUser> ResolveCurrentAppUserAsync()
+        // Note: Auto-provisioning is disabled by default for security.
+        // Enable only in development or with explicit configuration.
+        private async Task<AppManager.Data.AppUser> ResolveCurrentAppUserAsync()
         {
             // First, normal Identity-backed user
             var identityUser = await _userManager.GetUserAsync(User);
@@ -429,42 +476,74 @@ namespace AppManager.Pages.Admin
             if (string.IsNullOrWhiteSpace(windowsName)) return null;
 
             // Try to find a matching AppUser by UserName
-            var existing = _userManager.Users.FirstOrDefault(u => u.UserName == windowsName);
+            var existing = await _userManager.Users.FirstOrDefaultAsync(u => u.UserName == windowsName);
             if (existing != null) return existing;
 
-            // Auto-provision a minimal user record (no password, local account marker)
-            var newUser = new AppManager.Data.AppUser
+            // Auto-provisioning: Only enable in development or with explicit setting
+            // This prevents unauthorized account creation in production
+            var allowAutoProvision = false; // TODO: Read from configuration
+            if (!allowAutoProvision)
             {
-                UserName = windowsName,
-                Vorname = windowsName,
-                Nachname = string.Empty,
-                Email = string.Empty,
-                EmailConfirmed = true,
-                IsActive = true,
-                IsGlobalAdmin = false
-            };
-
-            // Create with a random password (account won't be used for login when Windows Auth is enabled)
-            var pwd = Guid.NewGuid().ToString() + "aA1!";
-            var createResult = await _userManager.CreateAsync(newUser, pwd);
-            if (createResult.Succeeded)
-            {
-                return newUser;
+                _logger.LogInformation("Auto-provisioning disabled for Windows user {WindowsName}", windowsName);
+                return null;
             }
 
-            // If creation fails, fallback to null
-            _logger.LogWarning("Could not auto-provision AppUser for Windows principal {Name}: {Errors}", windowsName, string.Join(";", createResult.Errors.Select(e => e.Description)));
-            return null;
+            try
+            {
+                // Auto-provision a minimal user record (no password, local account marker)
+                var newUser = new AppManager.Data.AppUser
+                {
+                    UserName = windowsName,
+                    Vorname = windowsName.Split('\\').LastOrDefault() ?? windowsName,
+                    Nachname = "Auto-provisioned",
+                    Email = $"{windowsName.Replace('\\', '.')}@local",
+                    EmailConfirmed = true,
+                    IsActive = true,
+                    IsGlobalAdmin = false
+                };
+
+                // Create with a random password (account won't be used for login when Windows Auth is enabled)
+                var pwd = Guid.NewGuid().ToString() + "aA1!";
+                var createResult = await _userManager.CreateAsync(newUser, pwd);
+                if (createResult.Succeeded)
+                {
+                    _logger.LogInformation("Auto-provisioned AppUser for Windows principal {Name}", windowsName);
+                    return newUser;
+                }
+
+                // If creation fails, log and fallback to null
+                _logger.LogWarning("Could not auto-provision AppUser for Windows principal {Name}: {Errors}", 
+                    windowsName, string.Join(";", createResult.Errors.Select(e => e.Description)));
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error auto-provisioning user for {WindowsName}", windowsName);
+                return null;
+            }
         }
 
         private float GetCpuUsageForAppPool(string appPoolName)
         {
-#if WINDOWS
-            // Beispiel: PerformanceCounter für IIS AppPool CPU-Last
+            // Only try on Windows platform
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return 0;
+            }
+
             try
             {
+                // Note: PerformanceCounter with AppPool name directly often fails
+                // Better approach would be to map AppPool -> WorkerProcess PID -> Process counter
+                // For now, we'll try a basic approach and gracefully handle failures
                 using var cpuCounter = new PerformanceCounter("Process", "% Processor Time", appPoolName, true);
                 return cpuCounter.NextValue();
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // Counter not found, which is common for AppPool names
+                _logger.LogDebug("PerformanceCounter für {Pool} nicht verfügbar (Instance not found)", appPoolName);
+                return 0;
             }
             catch (System.Runtime.InteropServices.COMException comEx)
             {
@@ -476,10 +555,29 @@ namespace AppManager.Pages.Admin
                 _logger.LogDebug(ex, "Fehler beim Auslesen der CPU-Last für {Pool}", appPoolName);
                 return 0;
             }
-#else
-            // Nicht unterstützt auf anderen Plattformen
-            return 0;
-#endif
+        }
+
+        // Input validation helpers
+        private static bool IsValidPoolName(string poolName)
+        {
+            if (string.IsNullOrWhiteSpace(poolName)) return false;
+            // Allow alphanumeric, dash, underscore, dot
+            return poolName.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.');
+        }
+
+        private static bool IsValidPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            try
+            {
+                // Basic validation - check for invalid path characters
+                var invalidChars = System.IO.Path.GetInvalidPathChars();
+                return !path.Any(c => invalidChars.Contains(c));
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
