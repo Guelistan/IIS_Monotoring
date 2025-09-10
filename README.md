@@ -1,16 +1,33 @@
-# AppManager Projekt Dokumentation
+# 🔧 IIS Monitoring & Application Manager
 
-## Projektbeschreibung
+Ein sicheres und robustes ASP.NET Core Web-Tool für das Management von Anwendungen und IIS Application Pools.
 
-ASP.NET Core Web-Anwendung zum Verwalten und Steuern von Server-Anwendungen mit Benutzerberechtigungen, Datenbank-Integration und Web-Admin-Bereich.
+## ✨ Features
 
-**Hauptfunktionen:**
+### 🚀 **Anwendungsverwaltung**
+- **Starten/Stoppen** von Windows-Anwendungen
+- **Überwachung** laufender Prozesse
+- **Restart-Management** mit Fehlerbehandlung
+- **Kategorie-basierte** Organisation
 
-- Anwendungen starten und stoppen
-- Benutzerberechtigungen verwalten (App-Owner System)
-- SQL Server Datenbank mit Windows-Authentifizierung
-- Web-Administratorbereich mit Statusübersicht
-- ASP.NET Core Identity für Authentifizierung
+### 🖥️ **IIS Integration** 
+- **Automatisches Auslesen** aller IIS Application Pools
+- **Start/Stop/Restart/Recycle** Operationen
+- **Plattformunabhängig** durch Reflection-basierte Integration
+- **Fehlertoleranz** mit graceful fallbacks
+
+### 🛡️ **Sicherheit & Robustheit**
+- **Windows Authentication** Support (Negotiate + Cookies)
+- **[Authorize]** Schutz für Admin-Bereiche
+- **Input Validation** gegen Injection-Angriffe
+- **Async/Await** Pattern für bessere Performance
+- **Strukturiertes Logging** für Audit-Trails
+
+### 📊 **Monitoring & Überwachung**
+- **CPU-Verbrauch** Monitoring mit Performance Counters
+- **Launch History** mit Benutzer-Tracking
+- **Real-time Status** Updates
+- **Owner-basierte** Zugriffskontrolle
 
 **📊 Diagramme:** Siehe [DIAGRAMS.md](DIAGRAMS.md) für Use Case und Klassendiagramme
 
