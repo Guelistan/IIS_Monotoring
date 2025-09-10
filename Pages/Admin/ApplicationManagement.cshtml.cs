@@ -43,6 +43,11 @@ namespace AppManager.Pages.Admin
             {
                 // Load DB applications (prefer persisted entries) and IIS list as fallback
                 Applications = await _db.Applications.OrderBy(a => a.Name).ToListAsync();
+                
+                // FOR TESTING: Always load IIS apps to see them in action
+                var iisApps = await GetIISApplicationsAsync();
+                Applications.AddRange(iisApps.Where(iis => !Applications.Any(db => db.IISAppPoolName == iis.IISAppPoolName)));
+                
                 if (Applications == null || Applications.Count == 0)
                 {
                     Applications = await GetIISApplicationsAsync();
