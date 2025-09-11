@@ -232,9 +232,6 @@ namespace AppManager.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Path")
-                        .HasColumnType("TEXT");
-
                     b.Property<int?>("ProcessId")
                         .HasColumnType("INTEGER");
 

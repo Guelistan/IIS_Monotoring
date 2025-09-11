@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AppManager.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class DBerstelen : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -33,8 +33,7 @@ namespace AppManager.Migrations
                     IconPath = table.Column<string>(type: "TEXT", nullable: true),
                     Version = table.Column<string>(type: "TEXT", nullable: true),
                     Category = table.Column<string>(type: "TEXT", nullable: true),
-                    Tags = table.Column<string>(type: "TEXT", nullable: true),
-                    Path = table.Column<string>(type: "TEXT", nullable: true)
+                    Tags = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {

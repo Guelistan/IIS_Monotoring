@@ -48,7 +48,49 @@
 <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
 }
 
-<!-- IIS-Status und Berechtigungsfehler anzeigen -->
+<!-- TempData-Nachrichten anzeigen -->
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill me-2" viewBox="0 0 16 16">
+            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.061L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+        </svg>
+        <strong>Erfolgreich:</strong> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill me-2" viewBox="0 0 16 16">
+            <path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/>
+        </svg>
+        <strong>Fehler:</strong> @TempData["ErrorMessage"]
+        
+        @if (TempData["ErrorMessage"].ToString().Contains("Objektkennung") || TempData["ErrorMessage"].ToString().Contains("0x800710D8"))
+        {
+            <hr class="my-2">
+            <small class="d-block">
+                <strong>💡 Mögliche Ursachen:</strong><br>
+                • Der AppPool existiert nicht mehr im IIS<br>
+                • IIS-Dienste (W3SVC/WAS) sind gestoppt<br>
+                • Keine Administratorrechte für IIS-Operationen
+            </small>
+        }
+        
+        @if (TempData["ErrorMessage"].ToString().Contains("Der Dienst wurde nicht gestartet") || TempData["ErrorMessage"].ToString().Contains("0x80070426"))
+        {
+            <hr class="my-2">
+            <small class="d-block">
+                <strong>🔧 Lösungsvorschlag:</strong><br>
+                IIS-Dienste neu starten: <code>iisreset</code> als Administrator ausführen
+            </small>
+        }
+        
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 @if (!string.IsNullOrEmpty(Model.IisErrorMessage))
 {
     <div class="alert alert-warning d-flex align-items-center" role="alert">

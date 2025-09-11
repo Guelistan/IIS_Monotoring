@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AppManager.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250907185534_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250911222542_DBerstelen")]
+    partial class DBerstelen
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -233,9 +233,6 @@ namespace AppManager.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Path")
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("ProcessId")

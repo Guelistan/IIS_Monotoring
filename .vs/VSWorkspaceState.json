@@ -1,6 +1,11 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\Data",
+    "\\Migrations",
+    "\\Models",
+    "\\Pages",
+    "\\publish_test"
   ],
   "SelectedNode": "\\AppManager.sln",
   "PreviewInSolutionExplorer": true

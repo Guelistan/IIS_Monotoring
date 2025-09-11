@@ -212,15 +212,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    if (!_appService.TryStartIisAppPool(app.IISAppPoolName, out var err))
+                    if (!_appService.TryStartIisAppPoolWithVerification(app.IISAppPoolName, out var message))
                     {
-                        _logger.LogWarning("TryStartIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
-                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Starten des AppPools." : err;
+                        _logger.LogWarning("IIS AppPool start failed for {Pool}: {Message}", app.IISAppPoolName, message);
+                        TempData["ErrorMessage"] = message;
                     }
                     else
                     {
-                        _logger.LogInformation("AppPool {Pool} started by user {User}", app.IISAppPoolName, currentUser.UserName);
-                        TempData["SuccessMessage"] = "Anwendung gestartet.";
+                        _logger.LogInformation("AppPool {Pool} successfully started by user {User}", app.IISAppPoolName, currentUser.UserName);
+                        TempData["SuccessMessage"] = message;
                     }
                 }
                 else
@@ -265,15 +265,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    if (!_appService.TryStopIisAppPool(app.IISAppPoolName, out var err))
+                    if (!_appService.TryStopIisAppPoolWithVerification(app.IISAppPoolName, out var message))
                     {
-                        _logger.LogWarning("TryStopIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
-                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Stoppen des AppPools." : err;
+                        _logger.LogWarning("IIS AppPool stop failed for {Pool}: {Message}", app.IISAppPoolName, message);
+                        TempData["ErrorMessage"] = message;
                     }
                     else
                     {
-                        _logger.LogInformation("AppPool {Pool} stopped by user {User}", app.IISAppPoolName, currentUser.UserName);
-                        TempData["SuccessMessage"] = "Anwendung gestoppt.";
+                        _logger.LogInformation("AppPool {Pool} successfully stopped by user {User}", app.IISAppPoolName, currentUser.UserName);
+                        TempData["SuccessMessage"] = message;
                     }
                 }
                 else
@@ -317,14 +317,15 @@ namespace AppManager.Pages.Admin
                         return RedirectToPage();
                     }
 
-                    if (!_appService.TryRecycleIisAppPool(app.IISAppPoolName, out var err))
+                    if (!_appService.TryRecycleIisAppPoolWithVerification(app.IISAppPoolName, out var message))
                     {
-                        _logger.LogWarning("TryRecycleIisAppPool failed for {Pool}: {Error}", app.IISAppPoolName, err);
-                        TempData["ErrorMessage"] = string.IsNullOrWhiteSpace(err) ? "Fehler beim Recycle des AppPools." : err;
+                        _logger.LogWarning("IIS AppPool recycle failed for {Pool}: {Message}", app.IISAppPoolName, message);
+                        TempData["ErrorMessage"] = message;
                     }
                     else
                     {
-                        TempData["SuccessMessage"] = "Anwendung neugestartet.";
+                        _logger.LogInformation("AppPool {Pool} successfully recycled by user {User}", app.IISAppPoolName, currentUser.UserName);
+                        TempData["SuccessMessage"] = message;
                     }
                 }
                 catch (UnauthorizedAccessException uaEx)
