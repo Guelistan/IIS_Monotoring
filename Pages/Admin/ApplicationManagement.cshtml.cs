@@ -36,6 +36,7 @@ namespace AppManager.Pages.Admin
         public List<float> CpuLoads { get; set; } = new();
         public List<string> AppPoolNames { get; set; } = new();
         public string IisErrorMessage { get; set; } = string.Empty;
+        public bool IisAvailable { get; set; } = false;
         // Load page data and authorization info
         public async Task OnGetAsync()
         {
@@ -408,9 +409,11 @@ namespace AppManager.Pages.Admin
                 {
                     _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
                     IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der IIS-Anwendungen." : err;
+                    IisAvailable = false;
                     return Task.FromResult(result);
                 }
 
+                IisAvailable = true;  // IIS ist verfügbar
                 foreach (var p in pools)
                 {
                     result.Add(new AppManager.Models.Application
@@ -428,6 +431,7 @@ namespace AppManager.Pages.Admin
             {
                 _logger.LogError(ex, "Fehler beim Laden der IIS-Anwendungen");
                 IisErrorMessage = "Fehler beim Laden der IIS-Anwendungen. Details im Log.";
+                IisAvailable = false;
             }
             return Task.FromResult(result);
         }
@@ -441,10 +445,15 @@ namespace AppManager.Pages.Admin
                 if (!_appService.TryListIisAppPools(out var pools, out var err))
                 {
                     _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
-                    IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der CPU-Daten." : err;
+                    if (string.IsNullOrEmpty(IisErrorMessage)) // Nur setzen, wenn noch kein Fehler vorliegt
+                    {
+                        IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der CPU-Daten." : err;
+                    }
+                    IisAvailable = false;
                     return Task.CompletedTask;
                 }
 
+                IisAvailable = true;
                 foreach (var p in pools)
                 {
                     AppPoolNames.Add(p.Name);
@@ -455,7 +464,11 @@ namespace AppManager.Pages.Admin
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Fehler beim Laden der CPU-Daten für IIS-AppPools");
-                IisErrorMessage = "Fehler beim Laden der CPU-Daten. Details im Log.";
+                if (string.IsNullOrEmpty(IisErrorMessage)) // Nur setzen, wenn noch kein Fehler vorliegt
+                {
+                    IisErrorMessage = "Fehler beim Laden der CPU-Daten. Details im Log.";
+                }
+                IisAvailable = false;
             }
             return Task.CompletedTask;
         }

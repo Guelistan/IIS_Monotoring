@@ -121,12 +121,27 @@ namespace AppManager.Services
             }
             catch (TargetInvocationException tie)
             {
-                error = tie.InnerException?.Message ?? tie.Message;
+                error = FormatIisError(tie.InnerException ?? tie);
+                return false;
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+                error = "⚠️ Keine Berechtigung für IIS-Zugriff. Starten Sie die Anwendung als Administrator.";
+                return false;
+            }
+            catch (System.ComponentModel.Win32Exception w32ex)
+            {
+                error = $"⚠️ Windows-Systemproblem: {w32ex.Message}";
+                return false;
+            }
+            catch (System.IO.FileNotFoundException fnfex) when (fnfex.Message.Contains("redirection.config"))
+            {
+                error = "⚠️ IIS-Konfigurationsdatei nicht verfügbar. Bitte prüfen Sie die IIS-Installation.";
                 return false;
             }
             catch (Exception ex)
             {
-                error = ex.Message;
+                error = FormatIisError(ex);
                 return false;
             }
         }
@@ -197,12 +212,22 @@ namespace AppManager.Services
             }
             catch (TargetInvocationException tie)
             {
-                error = tie.InnerException?.Message ?? tie.Message;
+                error = FormatIisError(tie.InnerException ?? tie);
+                return false;
+            }
+            catch (System.UnauthorizedAccessException)
+            {
+                error = "⚠️ Keine Berechtigung für IIS-AppPool-Operationen. Starten Sie die Anwendung als Administrator.";
+                return false;
+            }
+            catch (System.ComponentModel.Win32Exception w32ex)
+            {
+                error = $"⚠️ Windows-Systemproblem bei IIS-Operation: {w32ex.Message}";
                 return false;
             }
             catch (Exception ex)
             {
-                error = ex.Message;
+                error = FormatIisError(ex);
                 return false;
             }
         }
@@ -244,6 +269,47 @@ namespace AppManager.Services
                     return null;
                 }
             }
+        }
+
+        // Helper method to format IIS-related errors in a user-friendly way
+        private string FormatIisError(Exception ex)
+        {
+            if (ex == null) return "Unbekannter IIS-Fehler.";
+
+            var message = ex.Message?.ToLowerInvariant() ?? "";
+
+            // Check for common IIS permission/configuration issues
+            if (message.Contains("redirection.config"))
+            {
+                return "⚠️ IIS-Konfigurationsproblem: Die Datei 'redirection.config' kann nicht gelesen werden. " +
+                       "Starten Sie die Anwendung als Administrator oder prüfen Sie die IIS-Installation.";
+            }
+
+            if (message.Contains("access") && message.Contains("denied"))
+            {
+                return "⚠️ Zugriff verweigert: Keine Berechtigung für IIS-Operationen. " +
+                       "Starten Sie die Anwendung als Administrator.";
+            }
+
+            if (message.Contains("applicationhost.config"))
+            {
+                return "⚠️ IIS-Konfigurationsproblem: Die Hauptkonfigurationsdatei kann nicht gelesen werden. " +
+                       "Prüfen Sie die IIS-Installation und Berechtigungen.";
+            }
+
+            if (message.Contains("insufficient") || message.Contains("privilege"))
+            {
+                return "⚠️ Unzureichende Berechtigungen für IIS-Zugriff. " +
+                       "Starten Sie die Anwendung als Administrator.";
+            }
+
+            if (message.Contains("not found") || message.Contains("does not exist"))
+            {
+                return "⚠️ IIS-Komponente nicht gefunden. Prüfen Sie, ob IIS korrekt installiert ist.";
+            }
+
+            // Return original message with warning icon for unknown errors
+            return $"⚠️ IIS-Fehler: {ex.Message}";
         }
     }
 }
