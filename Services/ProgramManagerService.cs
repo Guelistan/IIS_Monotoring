@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using AppManager.Models;
 using Microsoft.Extensions.Logging;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AppManager.Services
 {
@@ -32,6 +34,19 @@ namespace AppManager.Services
             {
                 return null;
             }
+        }
+
+        public double? GetCpuUsageForAppPool(IEnumerable<int> processIds)
+        {
+            if (processIds == null) return null;
+            var values = new List<double>();
+            foreach (var pid in processIds)
+            {
+                var v = GetCpuUsageForProcess(pid);
+                if (v.HasValue) values.Add(v.Value);
+            }
+            if (values.Count == 0) return null;
+            return Math.Round(values.Sum(), 2);
         }
 
         private string GetProcessInstanceName(int processId)

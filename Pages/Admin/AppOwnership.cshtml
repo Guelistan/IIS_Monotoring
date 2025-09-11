@@ -46,6 +46,7 @@
                                     <tr>
                                         <th>👤 Benutzer</th>
                                         <th>📱 Anwendung</th>
+                                        <th>CPU</th>
                                         <th>🖥️ Windows Username</th>
                                         <th>🏊‍♀️ IIS App Pool</th>
                                         <th>📅 Erstellt am</th>
@@ -56,6 +57,7 @@
                                 <tbody>
                                     @foreach (var ownership in Model.AppOwnerships)
                                     {
+                                        var app = ownership.Application;
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
@@ -71,7 +73,7 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <div class="me-2">
-                                                        @if (ownership.Application.IsIISApplication)
+                                                        @if (app.IsIISApplication)
                                                         {
                                                             <span class="badge bg-success">🌐</span>
                                                         }
@@ -81,13 +83,24 @@
                                                         }
                                                     </div>
                                                     <div>
-                                                        <strong>@ownership.Application.Name</strong><br>
-                                                        @if (!string.IsNullOrEmpty(ownership.Application.Description))
+                                                        <strong>@app.Name</strong><br>
+                                                        @if (!string.IsNullOrEmpty(app.Description))
                                                         {
-                                                            <small class="text-muted">@ownership.Application.Description</small>
+                                                            <small class="text-muted">@app.Description</small>
                                                         }
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td>
+                                                @{ Model.CpuLoads.TryGetValue(app.Id, out var cpu); }
+                                                @if (cpu.HasValue)
+                                                {
+                                                    <span class="badge @(cpu.Value < 20 ? "bg-success" : cpu.Value < 60 ? "bg-warning" : "bg-danger")">@cpu.Value% CPU</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">–</span>
+                                                }
                                             </td>
                                             <td>
                                                 <code>@ownership.WindowsUsername</code>
@@ -152,7 +165,8 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h5 class="card-title">👥 Benutzer mit Berechtigungen</h5>
-                    <h2 class="text-primary">@Model.AppOwnerships.Select(o => o.UserId).Distinct().Count()</h2>
+                    <h2 class="text-primary">@Model.AppOwnerships.Select(o => o.UserId).Distinct().Count()
+                    </h2>
                 </div>
             </div>
         </div>
@@ -160,7 +174,8 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h5 class="card-title">📱 Verwaltete Anwendungen</h5>
-                    <h2 class="text-success">@Model.AppOwnerships.Select(o => o.ApplicationId).Distinct().Count()</h2>
+                    <h2 class="text-success">@Model.AppOwnerships.Select(o => o.ApplicationId).Distinct().Count()
+                    </h2>
                 </div>
             </div>
         </div>
@@ -194,7 +209,8 @@
                                     <option value="">-- Benutzer auswählen --</option>
                                     @foreach (var user in Model.AvailableUsers)
                                     {
-                                        <option value="@user.Id">@user.Vorname @user.Nachname (@user.UserName)</option>
+                                        <option value="@user.Id">@user.Vorname @user.Nachname (@user.UserName)
+                                        </option>
                                     }
                                 </select>
                                 <span asp-validation-for="NewOwnership.UserId" class="text-danger"></span>
@@ -236,12 +252,36 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="iisAppPoolName" class="form-label">🏊‍♀️ IIS App Pool Name
-                                    (optional)</label>
-                                <input asp-for="NewOwnership.IISAppPoolName" type="text" class="form-control"
-                                    id="iisAppPoolName" placeholder="z.B. MyAppPool">
-                                <div class="form-text">
-                                    Name des IIS Application Pools (nur für IIS-Anwendungen)
+                                <label for="iisAppPoolName" class="form-label">🏊‍♀️ IIS App Pool Name</label>
+                                <div class="input-group">
+                                    <input list="iisApps" asp-for="NewOwnership.IISAppPoolName" type="text"
+                                        class="form-control" id="iisAppPoolName"
+                                        placeholder="z.B. DefaultAppPool">
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#poolList" aria-expanded="false" aria-controls="poolList">
+                                        Liste
+                                    </button>
+                                </div>
+                                <datalist id="iisApps">
+                                    @foreach (var iis in Model.AvailableIISApps)
+                                    {
+                                        <option value="@iis.AppPoolName">@iis.SiteName @iis.AppPath (@iis.AppPoolName)
+                                        </option>
+                                    }
+                                </datalist>
+                                <div class="collapse mt-2" id="poolList">
+                                    <div class="card card-body">
+                                        <label class="form-label">Alle AppPools</label>
+                                        <select class="form-select" id="allPoolsSelect"
+                                            onchange="document.getElementById('iisAppPoolName').value=this.value;">
+                                            <option value="">-- AppPool wählen --</option>
+                                            @foreach (var pool in Model.AvailableAppPools)
+                                            {
+                                                <option value="@pool">@pool</option>
+                                            }
+                                        </select>
+                                        <small class="text-muted">Wähle einen AppPool aus der vollständigen Liste.</small>
+                                    </div>
                                 </div>
                                 <span asp-validation-for="NewOwnership.IISAppPoolName" class="text-danger"></span>
                             </div>
@@ -249,10 +289,7 @@
                     </div>
 
                     <div class="alert alert-info">
-                        <strong>ℹ️ Hinweis:</strong>
-                        Diese Berechtigung erlaubt es dem Benutzer, die ausgewählte Anwendung zu starten, stoppen und zu
-                        verwalten.
-                        Stellen Sie sicher, dass der Windows-Username korrekt ist.
+                        <strong>ℹ️ Hinweis:</strong> Für IIS-Anwendungen kann der zugehörige AppPool über die Liste ausgewählt werden.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -313,87 +350,3 @@
         font-size: 0.8em;
     }
 </style>
-
-<!-- Delete Ownership Confirmation Modal -->
-<div class="modal fade" id="deleteOwnershipModal" tabindex="-1" aria-labelledby="deleteOwnershipModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="deleteOwnershipModalLabel">
-                    ⚠️ Berechtigung entfernen bestätigen
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-warning" role="alert">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>Achtung!</strong> Diese Aktion kann nicht rückgängig gemacht werden!
-                </div>
-
-                <p><strong>Sind Sie sicher, dass Sie die folgende App-Owner-Berechtigung dauerhaft entfernen
-                        möchten?</strong></p>
-
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <h6><strong>👤 Benutzer:</strong></h6>
-                        <p class="mb-2">
-                            <span id="deleteUserName">-</span><br>
-                            <small class="text-muted">Username: <span id="deleteUserUsername">-</span></small>
-                        </p>
-
-                        <h6><strong>🖥️ Anwendung:</strong></h6>
-                        <p class="mb-2" id="deleteAppName">-</p>
-
-                        <h6><strong>💻 Windows Username:</strong></h6>
-                        <p class="mb-0"><code id="deleteWindowsUsername">-</code></p>
-                    </div>
-                </div>
-
-                <div class="mt-3">
-                    <p class="text-muted mb-2"><strong>Auswirkungen:</strong></p>
-                    <ul class="text-muted">
-                        <li>🚫 Der Benutzer kann diese Anwendung nicht mehr starten</li>
-                        <li>📊 Alle zugehörigen Launch-Historie-Einträge bleiben erhalten</li>
-                        <li>⚙️ Die Berechtigung muss neu erstellt werden, um wieder Zugriff zu gewähren</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    ❌ Abbrechen
-                </button>
-                <form method="post" asp-page-handler="Delete" style="display: inline;" id="deleteOwnershipForm">
-                    <input type="hidden" name="ownershipId" id="deleteOwnershipId" value="" />
-                    <button type="submit" class="btn btn-danger">
-                        🗑️ Ja, Berechtigung entfernen
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Handle delete modal data population
-    document.addEventListener('DOMContentLoaded', function () {
-        const deleteModal = document.getElementById('deleteOwnershipModal');
-
-        deleteModal.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const ownershipId = button.getAttribute('data-ownership-id');
-            const userName = button.getAttribute('data-user-name');
-            const userUsername = button.getAttribute('data-user-username');
-            const appName = button.getAttribute('data-app-name');
-            const windowsUsername = button.getAttribute('data-windows-username');
-
-            // Update modal content
-            document.getElementById('deleteUserName').textContent = userName;
-            document.getElementById('deleteUserUsername').textContent = userUsername;
-            document.getElementById('deleteAppName').textContent = appName;
-            document.getElementById('deleteWindowsUsername').textContent = windowsUsername;
-            document.getElementById('deleteOwnershipId').value = ownershipId;
-        });
-    });
-</script>

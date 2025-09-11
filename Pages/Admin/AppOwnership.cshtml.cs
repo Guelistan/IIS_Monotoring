@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using AppModel = AppManager.Models.Application;
+using AppManager.Services;
 
 namespace AppManager.Pages.Admin
 {
@@ -17,15 +18,23 @@ namespace AppManager.Pages.Admin
     public class AppOwnershipModel : PageModel
     {
         private readonly AppDbContext _context;
+        private readonly IISService _iisService;
+        private readonly ProgramManagerService _programManager;
 
-        public AppOwnershipModel(AppDbContext context)
+        public AppOwnershipModel(AppDbContext context, IISService iisService, ProgramManagerService programManager)
         {
             _context = context;
+            _iisService = iisService;
+            _programManager = programManager;
         }
 
         public List<AppOwnership> AppOwnerships { get; set; } = new();
         public List<AppUser> AvailableUsers { get; set; } = new();
         public List<Application> AvailableApplications { get; set; } = new();
+        public List<IISAppInfo> AvailableIISApps { get; set; } = new();
+        public List<string> AvailableAppPools { get; set; } = new();
+
+        public Dictionary<Guid, double?> CpuLoads { get; set; } = new();
 
         [BindProperty]
         public NewOwnershipModel NewOwnership { get; set; } = new();
@@ -48,27 +57,107 @@ namespace AppManager.Pages.Admin
         {
             Console.WriteLine("🔍 AppOwnership OnGetAsync wird ausgeführt...");
 
-            // Lade alle App-Ownerships mit Benutzer- und App-Daten
             AppOwnerships = await _context.AppOwnerships
                 .Include(o => o.User)
                 .Include(o => o.Application)
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync();
 
-            Console.WriteLine($"📊 {AppOwnerships.Count} App-Ownerships geladen");
-
-            // Lade verfügbare Benutzer und Apps für das Formular
             AvailableUsers = await _context.Users
                 .Where(u => u.IsActive)
                 .OrderBy(u => u.Vorname)
                 .ToListAsync();
 
+            // Lade existierende Apps aus DB
             AvailableApplications = await _context.Applications
                 .OrderBy(a => a.Name)
                 .ToListAsync();
 
-            Console.WriteLine($"👥 {AvailableUsers.Count} aktive Benutzer verfügbar");
-            Console.WriteLine($"📱 {AvailableApplications.Count} Anwendungen verfügbar");
+            // IIS: Apps und Pools holen
+            try { AvailableIISApps = await _iisService.GetAllApplicationsAsync(); }
+            catch { AvailableIISApps = new List<IISAppInfo>(); }
+            try { AvailableAppPools = await _iisService.GetApplicationPoolsAsync(); }
+            catch { AvailableAppPools = new List<string>(); }
+
+            // Sync: Fehlt eine IIS-App/Pool in DB -> als Application anlegen
+            bool created = false;
+            var knownPools = new HashSet<string>(
+                AvailableApplications.Where(a => a.IsIISApplication && !string.IsNullOrWhiteSpace(a.IISAppPoolName))
+                                      .Select(a => a.IISAppPoolName!),
+                StringComparer.OrdinalIgnoreCase);
+
+            // 1) IIS Applications (Site+Path) -> Application-Einträge
+            foreach (var iis in AvailableIISApps)
+            {
+                if (string.IsNullOrWhiteSpace(iis.AppPoolName)) continue;
+                if (knownPools.Contains(iis.AppPoolName)) continue;
+
+                var app = new Application
+                {
+                    Id = Guid.NewGuid(),
+                    Name = $"{iis.SiteName}{iis.AppPath}",
+                    Description = $"IIS App ({iis.SiteName}{iis.AppPath})",
+                    IsIISApplication = true,
+                    IISAppPoolName = iis.AppPoolName,
+                    IISSiteName = iis.SiteName,
+                    ExecutablePath = string.Empty,
+                    LastLaunchTime = DateTime.Now
+                };
+                _context.Applications.Add(app);
+                knownPools.Add(iis.AppPoolName);
+                created = true;
+            }
+
+            // 2) Reine AppPools ohne zugeordnete IIS-App -> Platzhalter-App
+            foreach (var pool in AvailableAppPools)
+            {
+                if (string.IsNullOrWhiteSpace(pool)) continue;
+                if (knownPools.Contains(pool)) continue;
+
+                var app = new Application
+                {
+                    Id = Guid.NewGuid(),
+                    Name = $"AppPool: {pool}",
+                    Description = "Automatisch aus IIS AppPool erzeugt",
+                    IsIISApplication = true,
+                    IISAppPoolName = pool,
+                    ExecutablePath = string.Empty,
+                    LastLaunchTime = DateTime.Now
+                };
+                _context.Applications.Add(app);
+                knownPools.Add(pool);
+                created = true;
+            }
+
+            if (created)
+            {
+                await _context.SaveChangesAsync();
+                // Nach dem Sync neu laden, damit Dropdown alle enthält
+                AvailableApplications = await _context.Applications
+                    .OrderBy(a => a.Name)
+                    .ToListAsync();
+            }
+
+            // CPU je App ermitteln
+            CpuLoads = new Dictionary<Guid, double?>();
+            foreach (var app in AvailableApplications)
+            {
+                double? cpu = null;
+                try
+                {
+                    if (app.IsIISApplication && !string.IsNullOrWhiteSpace(app.IISAppPoolName))
+                    {
+                        var pids = _iisService.GetWorkerProcessIds(app.IISAppPoolName);
+                        cpu = _programManager.GetCpuUsageForAppPool(pids);
+                    }
+                    else if (app.ProcessId.HasValue)
+                    {
+                        cpu = _programManager.GetCpuUsageForProcess(app.ProcessId.Value);
+                    }
+                }
+                catch { cpu = null; }
+                CpuLoads[app.Id] = cpu;
+            }
         }
 
         public async Task<IActionResult> OnPostAddAsync()
@@ -81,7 +170,7 @@ namespace AppManager.Pages.Admin
             if (!ModelState.IsValid)
             {
                 Console.WriteLine("❌ ModelState ist ungültig");
-                await OnGetAsync(); // Daten neu laden
+                await OnGetAsync();
                 return Page();
             }
 
