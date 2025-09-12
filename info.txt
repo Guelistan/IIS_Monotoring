@@ -2,13 +2,16 @@
 ===================================================
 
 ✅ STATUS: VOLLSTÄNDIG FUNKTIONSFÄHIG (Stand: 12.09.2025)
+🆕 **NEUESTE VERSION**: v2.2 - Navigation UX + Button Styling
 
 📋 PROJEKT ÜBERSICHT
 -------------------
 • ASP.NET Core 8.0 Webanwendung für IIS Application Pool Management
-• Self-contained Deployment erfolgreich implementiert
+• Self-contained Deployment erfolgreich implementiert  
 • Sicherheitsprobleme mit Windows Service Architektur gelöst
 • Direkte Microsoft.Web.Administration Integration (vereinfacht)
+• 🎨 Pistazien-grünes Design mit schwarzen Button-Rändern + roten Schatten
+• 🚀 Dedizierte IISManager-Seite mit CPU-Monitoring
 
 🚀 DEPLOYMENT ERFOLG
 -------------------
@@ -68,10 +71,35 @@
 📝 ENTWICKLUNGSHISTORIE
 ----------------------
 • Phase 1: Komplexe Windows Service Architektur (zu groß)
-• Phase 2: Vereinfachung auf direkte IIS Integration
+• Phase 2: Vereinfachung auf direkte IIS Integration  
 • Phase 3: Self-contained Deployment Implementation
 • Phase 4: IIS Berechtigungen und Authentifizierung
 • Phase 5: SQLite Optimierung und Stabilität
+• Phase 6: 🎨 Pistazien-grünes UI Design mit modernen Effekten
+• Phase 7: 🚀 IISManager-Seite mit CPU PerformanceCounter Integration
+• Phase 8: 🔄 Navigation UX Verbesserungen + schwarze Button-Ränder + rote Schatten
+
+🆕 NEUE FEATURES (v2.2)
+----------------------
+• 🏠 Dashboard: ReadOnly Übersicht + Navigation Hub
+• 📱 ApplicationManagement: Windows Apps Verwaltung + IIS Weiterleitung  
+• 🚀 IISManager: Dedizierte AppPool-Verwaltung mit CPU-Monitoring
+• 🎨 Button Styling: Schwarze Ränder (2px solid #000) + Rote Schatten
+• 📊 CPU Monitoring: PerformanceCounter Integration für Echtzeit-Auslastung
+• ⏰ Peak-Zeit Analyse: Intelligente Tageszeit-basierte CPU-Trend-Berechnung
+• 🔄 Auto-Refresh: Automatische Aktualisierung der CPU-Werte
+
+🎯 NAVIGATION STRUKTUR
+---------------------
+Dashboard (Übersicht) 
+├── 📱 Windows Apps → ApplicationManagement
+│   ├── Windows Apps: Start/Stop/Restart (lokale Kontrolle)
+│   └── IIS Apps: "🚀 IIS Manager" Button (Weiterleitung)
+└── 🚀 IIS AppPools → IISManager  
+    ├── AppPool Start/Stop/Recycle
+    ├── Echtzeit CPU-Monitoring  
+    ├── Peak-Zeit Analyse (Morgen/Mittag/Abend/Nacht)
+    └── CPU-Trend Berechnung mit Variation
 
 🎯 NÄCHSTE SCHRITTE
 ------------------
