@@ -24,6 +24,7 @@
 
                     <!-- Basis-Navigation für alle authentifizierten Benutzer -->
                     <a class="btn btn-outline-success" asp-page="/Admin/Dashboard">Dashboard</a>
+                    <a class="btn btn-outline-primary" asp-page="/IISManager">🚀 IIS Manager</a>
                     <a class="btn btn-outline-info" asp-page="/Admin/History">History</a>
                     
                     @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))

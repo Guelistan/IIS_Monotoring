@@ -195,38 +195,45 @@
             <td style="width:20%">
                 @if (Model.CanManage(app.Id))
                 {
-                    <form method="post" asp-page-handler="Start" style="display:inline">
-                        <input type="hidden" name="applicationId" value="@app.Id" />
-                        <button type="submit" class="btn btn-success btn-sm" title="Starten">▶️</button>
-                    </form>
-                    <form method="post" asp-page-handler="Stop" style="display:inline">
-                        <input type="hidden" name="applicationId" value="@app.Id" />
-                        <button type="submit" class="btn btn-warning btn-sm" title="Stoppen">⏹️</button>
-                    </form>
-                    <form method="post" asp-page-handler="Restart" style="display:inline">
-                        <input type="hidden" name="applicationId" value="@app.Id" />
-                        <button type="submit" class="btn btn-secondary btn-sm" title="Reboot">🔁</button>
-                    </form>
-                }
-                else
-                {
-                    <!-- Nicht berechtigt: nur Status anzeigen (Buttons disabled) -->
-                    <button class="btn btn-success btn-sm" disabled title="Starten">▶️</button>
-                    <button class="btn btn-warning btn-sm" disabled title="Stoppen">⏹️</button>
-                    <button class="btn btn-secondary btn-sm" disabled title="Reboot">🔁</button>
-                }
-                @if (app.IsIISApplication && !string.IsNullOrWhiteSpace(app.IISAppPoolName))
-                {
-                    if (Model.CanManage(app.Id))
+                    @if (app.IsIISApplication)
                     {
-                        <form method="post" asp-page-handler="Recycle" style="display:inline">
-                            <input type="hidden" name="applicationId" value="@app.Id" />
-                            <button type="submit" class="btn btn-info btn-sm" title="AppPool recyceln">♻️</button>
-                        </form>
+                        <!-- IIS Apps: Verweis auf IIS Manager -->
+                        <div class="btn-group btn-group-sm" role="group">
+                            <span class="badge bg-info me-2">IIS App</span>
+                            <a asp-page="/IISManager" class="btn btn-primary btn-sm" title="Im IIS Manager verwalten">
+                                🚀 IIS Manager
+                            </a>
+                        </div>
                     }
                     else
                     {
-                        <button class="btn btn-info btn-sm" disabled title="AppPool recyceln">♻️</button>
+                        <!-- Normale Apps: Lokale Steuerung -->
+                        <form method="post" asp-page-handler="Start" style="display:inline">
+                            <input type="hidden" name="applicationId" value="@app.Id" />
+                            <button type="submit" class="btn btn-success btn-sm" title="Starten">▶️</button>
+                        </form>
+                        <form method="post" asp-page-handler="Stop" style="display:inline">
+                            <input type="hidden" name="applicationId" value="@app.Id" />
+                            <button type="submit" class="btn btn-warning btn-sm" title="Stoppen">⏹️</button>
+                        </form>
+                        <form method="post" asp-page-handler="Restart" style="display:inline">
+                            <input type="hidden" name="applicationId" value="@app.Id" />
+                            <button type="submit" class="btn btn-secondary btn-sm" title="Reboot">🔁</button>
+                        </form>
+                    }
+                }
+                else
+                {
+                    <!-- Nicht berechtigt -->
+                    @if (app.IsIISApplication)
+                    {
+                        <span class="badge bg-secondary">Keine IIS-Berechtigung</span>
+                    }
+                    else
+                    {
+                        <button class="btn btn-success btn-sm" disabled title="Starten">▶️</button>
+                        <button class="btn btn-warning btn-sm" disabled title="Stoppen">⏹️</button>
+                        <button class="btn btn-secondary btn-sm" disabled title="Reboot">🔁</button>
                     }
                 }
             </td>

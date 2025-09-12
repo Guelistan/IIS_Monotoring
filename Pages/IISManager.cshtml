@@ -1,0 +1,262 @@
+@page "/iismanager"
+@model AppManager.Pages.IISManagerModel
+@{
+    ViewData["Title"] = "🚀 IIS AppPool Manager";
+}
+
+<div class="container-fluid">
+    <!-- 📊 Header Stats -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h2 class="mb-0">🚀 IIS AppPool Manager</h2>
+                    <small class="text-muted">Echtzeitüberwachung & Management</small>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h3 class="text-success">@Model.AppPools.Count(p => p.State == "Started")</h3>
+                            <small>✅ Laufende Pools</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-danger">@Model.AppPools.Count(p => p.State == "Stopped")</h3>
+                            <small>❌ Gestoppte Pools</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-warning">@Model.GetHighCpuPoolsCount()</h3>
+                            <small>⚠️ Hohe CPU Last</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-info">@Model.AppPools.Count</h3>
+                            <small>📊 Gesamt Pools</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔄 Auto-Refresh Controls -->
+    <div class="row mb-3">
+        <div class="col-12 text-center">
+            <button class="btn btn-action btn-start" onclick="location.reload()">🔄 Aktualisieren</button>
+            <button class="btn btn-action" id="autoRefreshBtn" onclick="toggleAutoRefresh()">⏱️ Auto-Refresh</button>
+            <span class="badge badge-running" id="refreshStatus">Manuell</span>
+        </div>
+    </div>
+
+    <!-- 📋 AppPool Management Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">🏊‍♂️ Application Pools</h4>
+                    <small class="text-muted">CPU-Auslastung & Zeitanalyse</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>🏷️ Pool Name</th>
+                                    <th>📊 Status</th>
+                                    <th>💻 CPU Auslastung</th>
+                                    <th>⏰ Peak Zeit</th>
+                                    <th>📈 Trend (24h)</th>
+                                    <th>🎛️ Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pool in Model.AppPools.OrderBy(p => p.Name))
+                                {
+                                    var cpuUsage = Model.GetAppPoolCpuUsage(pool.Name);
+                                    var peakTime = Model.GetPeakTime(pool.Name);
+                                    var cpuClass = cpuUsage < 30 ? "cpu-low" : cpuUsage < 70 ? "cpu-medium" : "cpu-high";
+                                    
+                                    <tr class="@(pool.State == "Started" ? "" : "table-secondary")">
+                                        <td>
+                                            <strong>@pool.Name</strong>
+                                            @if (pool.ProcessId > 0)
+                                            {
+                                                <br><small class="text-muted">PID: @pool.ProcessId</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (pool.State == "Started")
+                                            {
+                                                <span class="badge badge-running">✅ Läuft</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge badge-stopped">❌ Gestoppt</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="cpu-usage-bar">
+                                                <div class="cpu-usage-fill @cpuClass" style="width: @(cpuUsage)%">
+                                                    <span style="position: absolute; left: 10px; top: 3px; font-weight: bold; color: white; font-size: 0.8rem;">
+                                                        @cpuUsage.ToString("F1")%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            @if (cpuUsage > 80)
+                                            {
+                                                <small class="text-danger">🔥 Kritisch hoch!</small>
+                                            }
+                                            else if (cpuUsage > 60)
+                                            {
+                                                <small class="text-warning">⚠️ Erhöht</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <strong>@peakTime</strong>
+                                            <br><small class="text-muted">@Model.GetPeakDescription(pool.Name)</small>
+                                        </td>
+                                        <td>
+                                            @{
+                                                var trend = Model.GetCpuTrend(pool.Name);
+                                            }
+                                            @if (trend > 0)
+                                            {
+                                                <span class="text-danger">📈 +@trend.ToString("F1")%</span>
+                                            }
+                                            else if (trend < 0)
+                                            {
+                                                <span class="text-success">📉 @trend.ToString("F1")%</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">➡️ Stabil</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (pool.State == "Started")
+                                            {
+                                                <button class="btn btn-action btn-stop btn-sm" onclick="performAction('@pool.Name', 'stop')">
+                                                    🛑 Stop
+                                                </button>
+                                                <button class="btn btn-action btn-recycle btn-sm" onclick="performAction('@pool.Name', 'recycle')">
+                                                    🔄 Recycle
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-action btn-start btn-sm" onclick="performAction('@pool.Name', 'start')">
+                                                    ▶️ Start
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📊 CPU Timeline Chart -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">📈 CPU Auslastung Timeline (24h)</h4>
+                    <small class="text-muted">Erkennung von Peak-Zeiten</small>
+                </div>
+                <div class="card-body">
+                    <canvas id="cpuChart" width="400" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 🔄 Auto-Refresh Funktionalität
+let autoRefreshInterval = null;
+
+function toggleAutoRefresh() {
+    const btn = document.getElementById('autoRefreshBtn');
+    const status = document.getElementById('refreshStatus');
+    
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        btn.textContent = '⏱️ Auto-Refresh';
+        status.textContent = 'Manuell';
+        status.className = 'badge badge-stopped';
+    } else {
+        autoRefreshInterval = setInterval(() => {
+            location.reload();
+        }, 30000); // 30 Sekunden
+        btn.textContent = '⏹️ Stop Auto-Refresh';
+        status.textContent = 'Aktiv (30s)';
+        status.className = 'badge badge-running';
+    }
+}
+
+// 🎯 AppPool Aktionen
+async function performAction(poolName, action) {
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Verarbeitung...';
+    
+    try {
+        const response = await fetch(`/IISManager?handler=${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+            },
+            body: `poolName=${encodeURIComponent(poolName)}`
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('❌ Fehler bei der Ausführung!');
+        }
+    } catch (error) {
+        alert('❌ Netzwerkfehler: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+// 📊 CPU Chart Initialisierung
+document.addEventListener('DOMContentLoaded', function() {
+    // Chart.js wird hier implementiert für die Timeline
+    console.log('🎨 Pistazien-Grün Theme geladen!');
+});
+</script>
+
+<style>
+/* 🎨 Spezifische Styles für die IIS Manager Seite */
+.table-hover tbody tr:hover {
+    background-color: rgba(147, 197, 160, 0.1);
+}
+
+.cpu-usage-bar {
+    margin: 5px 0;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Glowing Effect für laufende Badges ohne Keyframes */
+.badge-running {
+    box-shadow: 0 0 8px rgba(40, 167, 69, 0.5);
+    transition: box-shadow 0.3s ease;
+}
+
+.badge-running:hover {
+    box-shadow: 0 0 15px rgba(40, 167, 69, 0.8);
+}
+</style>

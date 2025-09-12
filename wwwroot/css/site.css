@@ -19,6 +19,184 @@ html {
 
 body {
   margin-bottom: 60px;
+  background: linear-gradient(135deg, #93c5a0 0%, #a8d4b5 50%, #bce3ca 100%);
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 🎨 Pistazien-Grün Theme */
+:root {
+  --pistachio-light: #bce3ca;
+  --pistachio-medium: #a8d4b5;
+  --pistachio-dark: #93c5a0;
+  --pistachio-accent: #7fb069;
+  --text-dark: #2c3e2f;
+  --success-green: #28a745;
+  --warning-orange: #fd7e14;
+  --danger-red: #dc3545;
+}
+
+/* 📱 Verbesserte Cards */
+.card {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* 🎨 Button Styling mit schwarzen Rändern und roten Schatten */
+.btn {
+  border: 2px solid #000000 !important; /* Schwarzer Rand */
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important; /* Roter Schatten */
+  transition: all 0.3s ease !important;
+  font-weight: 500;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4), 0 3px 6px rgba(220, 53, 69, 0.3) !important; /* Verstärkter roter Schatten beim Hover */
+  border-color: #000000 !important; /* Schwarzer Rand bleibt */
+}
+
+.btn:active, .btn:focus {
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.5), 0 1px 2px rgba(220, 53, 69, 0.4) !important; /* Roter Schatten beim Klick */
+  border-color: #000000 !important;
+}
+
+/* Spezielle Button-Varianten behalten ihre Farben, bekommen aber schwarze Ränder + rote Schatten */
+.btn-primary {
+  background-color: #007bff;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-success {
+  background-color: var(--success-green);
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-warning {
+  background-color: var(--warning-orange);
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-danger {
+  background-color: var(--danger-red);
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-outline-success {
+  color: var(--success-green);
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-outline-primary {
+  color: #007bff;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-outline-warning {
+  color: var(--warning-orange);
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-outline-secondary {
+  color: #6c757d;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-outline-info {
+  color: #17a2b8;
+  border: 2px solid #000000 !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3), 0 2px 4px rgba(220, 53, 69, 0.2) !important;
+}
+
+.card-header {
+  background: linear-gradient(45deg, var(--pistachio-medium), var(--pistachio-light));
+  border-bottom: 2px solid var(--pistachio-accent);
+  border-radius: 15px 15px 0 0 !important;
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+/* 🚀 AppPool Status Badges */
+.badge-running {
+  background: linear-gradient(45deg, var(--success-green), #20c997);
+  color: white;
+  border-radius: 20px;
+  padding: 8px 15px;
+  font-size: 0.85rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.badge-stopped {
+  background: linear-gradient(45deg, var(--danger-red), #e74c3c);
+  color: white;
+  border-radius: 20px;
+  padding: 8px 15px;
+  font-size: 0.85rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* 📊 CPU Usage Bars */
+.cpu-usage-bar {
+  background: linear-gradient(90deg, var(--pistachio-light), var(--pistachio-medium));
+  border-radius: 10px;
+  height: 25px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cpu-usage-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.cpu-low { background: linear-gradient(90deg, #28a745, #20c997); }
+.cpu-medium { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+.cpu-high { background: linear-gradient(90deg, #dc3545, #e74c3c); }
+
+/* 🔘 Action Buttons */
+.btn-action {
+  border-radius: 25px;
+  padding: 8px 20px;
+  font-weight: 500;
+  border: none;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.8rem;
+}
+
+.btn-start {
+  background: linear-gradient(45deg, var(--success-green), #20c997);
+  color: white;
+}
+
+.btn-stop {
+  background: linear-gradient(45deg, var(--danger-red), #e74c3c);
+  color: white;
+}
+
+.btn-recycle {
+  background: linear-gradient(45deg, var(--warning-orange), #ffc107);
+  color: white;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
