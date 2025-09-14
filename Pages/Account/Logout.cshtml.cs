@@ -17,8 +17,8 @@ namespace AppManager.Pages.Account
 
         public async Task<IActionResult> OnGetAsync()
         {
-            await _signInManager.SignOutAsync();
-            return RedirectToPage("/Account/Login", new { Message = "Du wurdest abgemeldet." });
+            await Task.CompletedTask; // Macht es wirklich asynchron
+            return Page();
         }
     }
 }

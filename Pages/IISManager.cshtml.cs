@@ -12,21 +12,15 @@ using System;
 namespace AppManager.Pages
 {
     [Authorize]
-    public class IISManagerModel : PageModel
+    public class IISManagerModel(AppService appService, ILogger<IISManagerModel> logger) : PageModel
     {
-        private readonly AppService _appService;
-        private readonly ILogger<IISManagerModel> _logger;
+        private readonly AppService _appService = appService;
+        private readonly ILogger<IISManagerModel> _logger = logger;
 
-        public IISManagerModel(AppService appService, ILogger<IISManagerModel> logger)
-        {
-            _appService = appService;
-            _logger = logger;
-        }
-
-        public List<AppPoolInfo> AppPools { get; set; } = new();
-        public Dictionary<string, double> AppPoolCpuUsage { get; set; } = new();
-        public Dictionary<string, string> PeakTimes { get; set; } = new();
-        public Dictionary<string, double> CpuTrends { get; set; } = new();
+        public List<AppPoolInfo> AppPools { get; set; } = [];
+        public Dictionary<string, double> AppPoolCpuUsage { get; set; } = [];
+        public Dictionary<string, string> PeakTimes { get; set; } = [];
+        public Dictionary<string, double> CpuTrends { get; set; } = [];
 
         public async Task OnGetAsync()
         {
@@ -44,18 +38,22 @@ namespace AppManager.Pages
                 // 📈 Berechne CPU-Trends
                 CalculateCpuTrends();
                 
-                _logger.LogInformation($"🎯 IIS Manager geladen: {AppPools.Count} AppPools");
+                _logger.LogInformation("🎯 IIS Manager geladen: {AppPoolCount} AppPools", AppPools.Count);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Fehler beim Laden der IIS Manager Daten");
-                AppPools = new List<AppPoolInfo>();
+                AppPools = [];
             }
         }
 
         public async Task<IActionResult> OnPostStartAsync(string poolName)
         {
-            var success = _appService.TryStartIisAppPoolWithVerification(poolName, out string message);
+            var (success, message) = await Task.Run(() =>
+            {
+                bool result = _appService.TryStartIisAppPoolWithVerification(poolName, out string msg);
+                return (result, msg);
+            });
             
             if (success)
             {
@@ -71,8 +69,12 @@ namespace AppManager.Pages
 
         public async Task<IActionResult> OnPostStopAsync(string poolName)
         {
-            var success = _appService.TryStopIisAppPoolWithVerification(poolName, out string message);
-            
+            var (success, message) = await Task.Run(() =>
+            {
+                bool result = _appService.TryStopIisAppPoolWithVerification(poolName, out string msg);
+                return (result, msg);
+            });
+
             if (success)
             {
                 TempData["SuccessMessage"] = $"✅ AppPool '{poolName}' erfolgreich gestoppt!";
@@ -81,14 +83,18 @@ namespace AppManager.Pages
             {
                 TempData["ErrorMessage"] = $"❌ Fehler beim Stoppen: {message}";
             }
-            
+
             return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostRecycleAsync(string poolName)
         {
-            var success = _appService.TryRecycleIisAppPoolWithVerification(poolName, out string message);
-            
+            var (success, message) = await Task.Run(() =>
+            {
+                bool result = _appService.TryRecycleIisAppPoolWithVerification(poolName, out string msg);
+                return (result, msg);
+            });
+
             if (success)
             {
                 TempData["SuccessMessage"] = $"✅ AppPool '{poolName}' erfolgreich recycelt!";
@@ -97,7 +103,7 @@ namespace AppManager.Pages
             {
                 TempData["ErrorMessage"] = $"❌ Fehler beim Recycling: {message}";
             }
-            
+
             return RedirectToPage();
         }
 
@@ -163,7 +169,7 @@ namespace AppManager.Pages
                 }
                 else
                 {
-                    _logger.LogWarning($"⚠️ IIS AppPools konnten nicht geladen werden: {error}");
+                    _logger.LogWarning("⚠️ IIS AppPools konnten nicht geladen werden: {Error}", error);
                 }
             }
             catch (Exception ex)
@@ -174,13 +180,7 @@ namespace AppManager.Pages
             return pools;
         }
 
-        private Task<string> GetAppPoolStateAsync(string poolName)
-        {
-            // State wird bereits von TryListIisAppPools geliefert
-            return Task.FromResult("Started"); // Placeholder
-        }
-
-        private Task<int> GetAppPoolProcessIdAsync(string poolName)
+        private static Task<int> GetAppPoolProcessIdAsync(string poolName)
         {
             try
             {
@@ -214,7 +214,7 @@ namespace AppManager.Pages
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, $"⚠️ CPU-Messung für {pool.Name} fehlgeschlagen");
+                    _logger.LogWarning(ex, "⚠️ CPU-Messung für {PoolName} fehlgeschlagen", pool.Name);
                     AppPoolCpuUsage[pool.Name] = 0.0;
                 }
             }
@@ -253,7 +253,7 @@ namespace AppManager.Pages
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, $"⚠️ CPU-Messung für AppPool {poolName} fehlgeschlagen");
+                _logger.LogWarning(ex, "⚠️ CPU-Messung für AppPool {PoolName} fehlgeschlagen", poolName);
                 
                 // 📊 Fallback: Realistische Simulation basierend auf AppPool Namen
                 var hash = Math.Abs(poolName.GetHashCode());
@@ -284,17 +284,17 @@ namespace AppManager.Pages
                 // Basiere Peak-Zeit auf aktueller CPU-Last und AppPool-Charakteristika
                 string peakTime;
                 
-                if (pool.Name.ToLower().Contains("defaultapppool") || pool.Name.ToLower().Contains("default"))
+                if (pool.Name.Contains("defaultapppool", StringComparison.OrdinalIgnoreCase) || pool.Name.Contains("default", StringComparison.OrdinalIgnoreCase))
                 {
                     // Default Pool: meist Business-Hours Peaks
                     peakTime = currentCpu > 50 ? $"{currentHour:D2}:00" : "14:00";
                 }
-                else if (pool.Name.ToLower().Contains("api") || pool.Name.ToLower().Contains("service"))
+                else if (pool.Name.Contains("api", StringComparison.OrdinalIgnoreCase) || pool.Name.Contains("service", StringComparison.OrdinalIgnoreCase))
                 {
                     // API/Service Pools: Kontinuierliche Last mit Mittag-Peak
                     peakTime = "12:30";
                 }
-                else if (pool.Name.ToLower().Contains("background") || pool.Name.ToLower().Contains("worker"))
+                else if (pool.Name.Contains("background", StringComparison.OrdinalIgnoreCase) || pool.Name.Contains("worker", StringComparison.OrdinalIgnoreCase))
                 {
                     // Background Worker: Nacht-Peaks für Batch-Jobs
                     peakTime = "02:00";

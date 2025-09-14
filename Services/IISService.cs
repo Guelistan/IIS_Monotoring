@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AppManager.Models;
 using Microsoft.Web.Administration;
+using System.Security.Principal;
 
 namespace AppManager.Services
 {
@@ -348,6 +349,32 @@ namespace AppManager.Services
                 return new List<int>();
             }
         }
+
+        public async Task<AppUser> ResolveCurrentAppUserAsync()
+        {
+            return await Task.Run(() =>
+            {
+                var windowsIdentity = (WindowsIdentity)null; // User.Identity as WindowsIdentity;
+                if (windowsIdentity != null)
+                {
+                    var username = windowsIdentity.Name; // z.B. "DOMAIN\\User"
+                    
+                    // Beispiel: Mappe zu Admin-Rollen
+                    var isAdmin = username.Contains("DOMAIN\\AdminUser"); // || User.IsInRole("Administrators"); // Windows-Gruppe prüfen
+                    
+                    return new AppUser
+                    {
+                        Id = Guid.NewGuid(), // Oder aus DB laden
+                        UserName = username,
+                        IsGlobalAdmin = isAdmin,
+                        // Andere Eigenschaften...
+                    };
+                }
+                
+                // Fallback für nicht-Windows-Auth
+                return null;
+            });
+        }
     }
 
     public class IISApplicationInfo
@@ -368,5 +395,13 @@ namespace AppManager.Services
         public string SiteName { get; set; }
         public string AppPath { get; set; }
         public string AppPoolName { get; set; }
+    }
+
+    public class AppUser
+    {
+        public Guid Id { get; set; }
+        public string UserName { get; set; } = string.Empty;
+        public bool IsGlobalAdmin { get; set; }
+        // Weitere Eigenschaften nach Bedarf
     }
 }

@@ -27,6 +27,8 @@ namespace AppManager.Pages.Account
 
         public async Task<IActionResult> OnGetAsync()
         {
+            await Task.CompletedTask; // Macht es wirklich asynchron
+
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {

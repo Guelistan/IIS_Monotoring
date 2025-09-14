@@ -4,12 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using DataAppUser = AppManager.Data.AppUser;
 
 namespace AppManager
 {
     public static class DebugUserCheck
     {
-        public static async Task CheckUsersInDatabase(AppDbContext context, UserManager<AppUser> userManager)
+        public static async Task CheckUsersInDatabase(AppDbContext context, UserManager<DataAppUser> userManager)
         {
             try
             {

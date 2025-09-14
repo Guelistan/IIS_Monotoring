@@ -15,8 +15,9 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
-// using Microsoft.AspNetCore.Authentication.Negotiate; // entfernt
+using Microsoft.AspNetCore.Authentication.Negotiate; // Neu hinzufügen
 using Microsoft.AspNetCore.Server.IISIntegration;
+using DataAppUser = AppManager.Data.AppUser;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,7 +46,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // 🔐 Identity-Konfiguration (für Daten/Token weiterverwendet, aber nicht für Windows-Login)
-builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
+builder.Services.AddIdentity<DataAppUser, IdentityRole>(options =>
     {
         options.SignIn.RequireConfirmedEmail = false;
         options.User.RequireUniqueEmail = false;
@@ -134,7 +135,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
-    var userManager = services.GetRequiredService<UserManager<AppUser>>();
+    var userManager = services.GetRequiredService<UserManager<DataAppUser>>();
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
     context.Database.Migrate();
@@ -207,7 +208,7 @@ using (var scope = app.Services.CreateScope())
     var admin = await userManager.FindByNameAsync(username);
     if (admin == null)
     {
-        admin = new AppUser
+        admin = new DataAppUser
         {
             UserName = username,
             Email = email,
@@ -236,7 +237,7 @@ using (var scope = app.Services.CreateScope())
     using (var debugScope = services.CreateScope())
     {
         var debugContext = debugScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var debugUserManager = debugScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var debugUserManager = debugScope.ServiceProvider.GetRequiredService<UserManager<DataAppUser>>();
         await AppManager.DebugUserCheck.CheckUsersInDatabase(debugContext, debugUserManager);
     }
 }
@@ -244,7 +245,7 @@ using (var scope = app.Services.CreateScope())
 app.UseStaticFiles();
 app.UseRouting();
 app.UseHttpLogging();
-// app.UseAuthentication(); // für reine Windows-Auth nicht nötig
+app.UseAuthentication(); // Aktiviert Auth-Middleware
 app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();

@@ -12,7 +12,7 @@ using System.IO;
 
 namespace AppManager.Pages.Admin
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Admin")] // Nur für Admins (basierend auf Windows-Gruppe)
     public class UsersModel : PageModel
     {
         private readonly AppDbContext _context;

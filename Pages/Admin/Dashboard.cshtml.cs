@@ -10,17 +10,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using DataAppUser = AppManager.Data.AppUser;
 
 namespace AppManager.Pages.Admin
 {
-    [Authorize]
+    [Authorize] // Erlaubt alle authentifizierten Windows-Benutzer
     public class DashboardModel : PageModel
     {
         private readonly AppDbContext _context;
-        private readonly UserManager<AppUser> _userManager;
+        private readonly UserManager<DataAppUser> _userManager;
         private readonly ProgramManagerService _programManager;
 
-        public DashboardModel(AppDbContext context, UserManager<AppUser> userManager, ProgramManagerService programManager)
+        public DashboardModel(AppDbContext context, UserManager<DataAppUser> userManager, ProgramManagerService programManager)
         {
             _context = context;
             _userManager = userManager;

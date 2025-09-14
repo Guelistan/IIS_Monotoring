@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using AppModel = AppManager.Models.Application;
 using AppManager.Services;
+using DataAppUser = AppManager.Data.AppUser;
 
 namespace AppManager.Pages.Admin
 {
@@ -29,7 +30,7 @@ namespace AppManager.Pages.Admin
         }
 
         public List<AppOwnership> AppOwnerships { get; set; } = new();
-        public List<AppUser> AvailableUsers { get; set; } = new();
+        public List<DataAppUser> AvailableUsers { get; set; } = new();
         public List<Application> AvailableApplications { get; set; } = new();
         public List<IISAppInfo> AvailableIISApps { get; set; } = new();
         public List<string> AvailableAppPools { get; set; } = new();

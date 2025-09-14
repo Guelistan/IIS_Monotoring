@@ -87,7 +87,7 @@ namespace AppManager.Services
                     .ToList();
                 return true;
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
                 error = "Keine Berechtigung für IIS-Zugriff";
                 return false;

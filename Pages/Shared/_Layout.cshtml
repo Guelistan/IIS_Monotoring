@@ -30,7 +30,6 @@
                     @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
                     {
                         <!-- Admin-spezifische Navigation -->
-                        <a class="btn btn-outline-primary" asp-page="/Admin/Diagrams">📊 Diagramme</a>
                         <a class="btn btn-outline-warning" asp-page="/Admin/Users">Users</a>
                         <!-- Rollenwechsel-Button für Admins -->
                         <a class="btn btn-outline-secondary" asp-page="/Account/SwitchRole" title="Rollenwechsel">🔄</a>
