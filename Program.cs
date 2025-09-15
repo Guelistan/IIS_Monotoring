@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -79,22 +81,56 @@ if (!builder.Environment.IsDevelopment())
     builder.WebHost.UseUrls("http://localhost:5130", "https://localhost:5007");
 }
 
-// ⚙️ HTTPS-Redirect
-var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
+// ⚙️ HTTPS-Redirect (konfigurierbar)
+// Default: disabled to avoid unerwartete Umleitungen auf WTS/Terminalserver.
+// Setze in appsettings.Production.json oder Umgebung: "EnforceHttpsRedirect": true
+var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? false;
 
 // WICHTIG: IIS als Authentifizierungsschema setzen (keine Negotiate-Middleware!)
 builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme);
 
 builder.Services.AddAuthorization(options =>
 {
-    // Beispiel: Admin-Ordner nur authentifizierten Benutzern erlauben
-    // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    // Admin-Policy: Erfordert die Admin- oder SuperAdmin-Rolle
+    options.AddPolicy("Admin", policy =>
+        policy.RequireRole("Admin", "SuperAdmin"));
+
+    // Optional: Globale Policy für authentifizierte Benutzer
+    // options.FallbackPolicy = new AuthorizationPolicyBuilder()
+    //     .RequireAuthenticatedUser()
+    //     .Build();
+});
+
+// HSTS service registration (options configured but only applied when enforceHttps==true)
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = false;
+    options.Preload = false;
 });
 
 // Razor Pages: /Admin schützen
 builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
 {
     opts.Conventions.AuthorizeFolder("/Admin");
+});
+
+// Cookie policy and Identity cookie options must be registered before Build()
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.Secure = CookieSecurePolicy.Always;
+    options.MinimumSameSitePolicy = SameSiteMode.Strict;
+});
+
+// Identity cookie options
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.LoginPath = "/Account/Login";
+    options.LogoutPath = "/Account/Logout";
+    options.AccessDeniedPath = "/Account/AccessDenied";
 });
 
 var app = builder.Build();
@@ -120,15 +156,21 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    // HSTS: Only enable if explicit configuration requests HTTPS enforcement.
     if (enforceHttps)
     {
         app.UseHsts();
     }
 }
+
+// HTTPS-Redirect: only when configured/enabled. Default remains false for WTS.
 if (enforceHttps)
 {
     app.UseHttpsRedirection();
 }
+
+app.UseStaticFiles();
+
 
 // 🧪 Initiales Datenbank-Seeding (unverändert)
 using (var scope = app.Services.CreateScope())
