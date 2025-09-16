@@ -17,16 +17,17 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Authentication.Negotiate; // Neu hinzufügen
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Server.IISIntegration;
-using DataAppUser = AppManager.Data.AppUser;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Principal;
+using System.DirectoryServices.AccountManagement;
+using AppUser = AppManager.Data.AppUser;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 📧 Fake E-Mail-Sender für Entwicklung
-builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
-
-// 📦 Datenbank: SQLite (Datei-basiert)
+//  Datenbank: SQLite (Datei-basiert)
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     var cs = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -47,33 +48,61 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(cs);
 });
 
-// 🔐 Identity-Konfiguration (für Daten/Token weiterverwendet, aber nicht für Windows-Login)
-builder.Services.AddIdentity<DataAppUser, IdentityRole>(options =>
+// 🔐 Identity-Konfiguration für Windows-Auth
+builder.Services.AddIdentityCore<AppManager.Data.AppUser>(options =>
     {
-        options.SignIn.RequireConfirmedEmail = false;
-        options.User.RequireUniqueEmail = false;
+        options.SignIn.RequireConfirmedAccount = false;
         options.Password.RequireDigit = false;
-        options.Password.RequiredLength = 3;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequireUppercase = false;
         options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
     })
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<AppDbContext>();
 
-// KEINE Cookie-Login-Umleitung für Windows-Auth
-// builder.Services.ConfigureApplicationCookie(...);
+// Windows-Authentifizierung konfigurieren
+builder.Services.AddAuthentication(options => {
+    options.DefaultScheme = "Windows";
+    options.DefaultAuthenticateScheme = "Windows";
+    options.DefaultChallengeScheme = "Windows";
+})
+.AddNegotiate("Windows", options => {
+    options.Events = new NegotiateEvents {
+        OnAuthenticated = context => {
+            if (context.Principal?.Identity is WindowsIdentity winIdentity)
+            {
+                var claims = new List<System.Security.Claims.Claim>
+                {
+                    new System.Security.Claims.Claim("windows_username", winIdentity.Name),
+                    new System.Security.Claims.Claim("windows_sid", winIdentity.User?.Value ?? "unknown")
+                };
+                var identity = new System.Security.Claims.ClaimsIdentity(claims, "Windows");
+                context.Principal.AddIdentity(identity);
+            }
+            return Task.CompletedTask;
+        }
+    };
+});
+
+// Claims Transformation für zusätzliche Identity-Integration
+builder.Services.AddScoped<IClaimsTransformation, WindowsUserClaimsTransformation>();
+
+// 📧 Fake E-Mail-Sender für Entwicklung
+builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+
+// HTTP Context Accessor für Service-basierte User-Erkennung
+builder.Services.AddHttpContextAccessor();
+
+// DI
+builder.Services.AddScoped<ProgramManagerService>();
+builder.Services.AddScoped<IISService>();
+builder.Services.AddScoped<AppService>();
 
 // 📋 HTTP-Logging
 builder.Services.AddHttpLogging(logging =>
 {
     logging.LoggingFields = HttpLoggingFields.All;
 });
-
-// DI
-builder.Services.AddScoped<ProgramManagerService>();
-builder.Services.AddScoped<IISService>();
-builder.Services.AddScoped<AppService>();
 
 // 🌐 URLs für Non-Development-Umgebung (bei IIS egal, wird ignoriert)
 if (!builder.Environment.IsDevelopment())
@@ -86,19 +115,20 @@ if (!builder.Environment.IsDevelopment())
 // Setze in appsettings.Production.json oder Umgebung: "EnforceHttpsRedirect": true
 var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? false;
 
-// WICHTIG: IIS als Authentifizierungsschema setzen (keine Negotiate-Middleware!)
-builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme);
-
 builder.Services.AddAuthorization(options =>
 {
-    // Admin-Policy: Erfordert die Admin- oder SuperAdmin-Rolle
+    // Grundlegende Windows-Auth Policy
+    var defaultPolicy = new AuthorizationPolicyBuilder()
+        .AddAuthenticationSchemes("Windows")
+        .RequireAuthenticatedUser()
+        .Build();
+    
+    options.DefaultPolicy = defaultPolicy;
+    options.FallbackPolicy = defaultPolicy;
+
+    // Admin-Policy
     options.AddPolicy("Admin", policy =>
         policy.RequireRole("Admin", "SuperAdmin"));
-
-    // Optional: Globale Policy für authentifizierte Benutzer
-    // options.FallbackPolicy = new AuthorizationPolicyBuilder()
-    //     .RequireAuthenticatedUser()
-    //     .Build();
 });
 
 // HSTS service registration (options configured but only applied when enforceHttps==true)
@@ -115,23 +145,7 @@ builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
     opts.Conventions.AuthorizeFolder("/Admin");
 });
 
-// Cookie policy and Identity cookie options must be registered before Build()
-builder.Services.Configure<CookiePolicyOptions>(options =>
-{
-    options.Secure = CookieSecurePolicy.Always;
-    options.MinimumSameSitePolicy = SameSiteMode.Strict;
-});
-
-// Identity cookie options
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Strict;
-    options.LoginPath = "/Account/Login";
-    options.LogoutPath = "/Account/Logout";
-    options.AccessDeniedPath = "/Account/AccessDenied";
-});
+// Windows Authentication - keine Cookie-Konfiguration notwendig
 
 var app = builder.Build();
 
@@ -177,7 +191,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
-    var userManager = services.GetRequiredService<UserManager<DataAppUser>>();
+    var userManager = services.GetRequiredService<UserManager<AppUser>>();
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
     context.Database.Migrate();
@@ -250,7 +264,7 @@ using (var scope = app.Services.CreateScope())
     var admin = await userManager.FindByNameAsync(username);
     if (admin == null)
     {
-        admin = new DataAppUser
+        admin = new AppUser
         {
             UserName = username,
             Email = email,
@@ -279,7 +293,7 @@ using (var scope = app.Services.CreateScope())
     using (var debugScope = services.CreateScope())
     {
         var debugContext = debugScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var debugUserManager = debugScope.ServiceProvider.GetRequiredService<UserManager<DataAppUser>>();
+        var debugUserManager = debugScope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
         await AppManager.DebugUserCheck.CheckUsersInDatabase(debugContext, debugUserManager);
     }
 }

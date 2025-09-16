@@ -1,28 +1,37 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Linq;
 using AppManager.Models;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using AppManager.Pages.Admin;
-
 
 namespace AppManager.Data
 {
     public class AppUser : IdentityUser
     {
+        // Basis-Eigenschaften
+        public bool IsActive { get; set; } = true;
         public bool IsGlobalAdmin { get; set; }
-
-        public bool IsActive { get; set; }
+        
+        // Windows-Authentifizierung
+        public string WindowsSid { get; set; }        // Windows SID für Login-Verknüpfung
+        public string WindowsUsername { get; set; }   // Domain\Username
+        public string DomainName { get; set; }       // Nur der Domainname
+        
+        // Persönliche Daten
         public string Vorname { get; set; }
         public string Nachname { get; set; }
         public string Abteilung { get; set; }
-        public System.DateTime CreatedAt { get; set; } = System.DateTime.Now;
+        
+        // Audit und System
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public string CreatedBy { get; set; }
-        public System.DateTime UpdatedAt { get; set; } = System.DateTime.Now;
-        // weitere Felder nach Bedarf
+        
+        // Computed Properties
+        public string FullName => $"{Vorname} {Nachname}".Trim();
+        public string DisplayName => string.IsNullOrEmpty(FullName) ? Email : FullName;
     }
 
     public class AppDbContext : IdentityDbContext<AppUser>
@@ -32,15 +41,11 @@ namespace AppManager.Data
         {
         }
 
-        //public new DbSet<AppUser> Users { get; set; }
         public DbSet<Application> Applications { get; set; }
         public DbSet<HistoryModel.ActivityLog> Logs { get; set; }
         public DbSet<LogEntry> LogEntries { get; set; }
         public DbSet<AppLaunchHistory> AppLaunchHistories { get; set; }
-
-        // 👥 NEU: App-Owner Berechtigungen
         public DbSet<AppOwnership> AppOwnerships { get; set; }
-
 
         public List<AppUser> GetUsersOrderedByCreationDate()
         {
@@ -57,7 +62,6 @@ namespace AppManager.Data
                 .HasForeignKey(log => log.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // 👥 App-Owner Beziehungen
             modelBuilder.Entity<AppOwnership>()
                 .HasOne(ao => ao.User)
                 .WithMany()
@@ -70,13 +74,11 @@ namespace AppManager.Data
                 .HasForeignKey(ao => ao.ApplicationId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 📊 App Launch History Beziehungen
             modelBuilder.Entity<AppLaunchHistory>()
                 .HasOne(alh => alh.Application)
                 .WithMany(a => a.LaunchHistory)
                 .HasForeignKey(alh => alh.ApplicationId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
-
     }
 }

@@ -119,39 +119,6 @@ namespace AppManager.Pages.Admin
             bool success = await _programManager.StartProgramAsync(app);
             Console.WriteLine($"🎯 Start-Ergebnis: {success}");
 
-            var currentUserId = _userManager.GetUserId(User) ?? string.Empty;
-            Console.WriteLine($"🙎‍♀️ Current User ID: {currentUserId}");
-
-            var history = new AppLaunchHistory
-            {
-                ApplicationId = appId,
-                UserId = currentUserId,
-                LaunchTime = DateTime.Now,
-                Action = "Start",
-                Reason = success
-                    ? (!string.IsNullOrWhiteSpace(customReason) ? customReason : "Manuell gestartet")
-                    : "Start fehlgeschlagen"
-            };
-
-            Console.WriteLine($"📝 Historie-Eintrag erstellt:");
-            Console.WriteLine($"   - ApplicationId: {history.ApplicationId}");
-            Console.WriteLine($"   - UserId: {history.UserId}");
-            Console.WriteLine($"   - Action: {history.Action}");
-            Console.WriteLine($"   - Reason: {history.Reason}");
-            Console.WriteLine($"   - LaunchTime: {history.LaunchTime}");
-
-            try
-            {
-                _context.AppLaunchHistories.Add(history);
-                var saveResult = await _context.SaveChangesAsync();
-                Console.WriteLine($"💾 SaveChanges Result: {saveResult} Zeilen betroffen");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ FEHLER beim Speichern der Historie: {ex.Message}");
-                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
-            }
-
             if (success)
             {
                 TempData["Success"] = $"'{app.Name}' wurde erfolgreich gestartet!";
@@ -224,22 +191,6 @@ namespace AppManager.Pages.Admin
 
             bool success = await _programManager.RestartProgramAsync(app);
             Console.WriteLine($"🔄 Restart-Ergebnis: {success}");
-
-            var history = new AppLaunchHistory
-            {
-                ApplicationId = appId,
-                UserId = _userManager.GetUserId(User) ?? string.Empty,
-                LaunchTime = DateTime.Now,
-                Action = "Restart",
-                Reason = success
-                    ? (!string.IsNullOrWhiteSpace(customReason) ? customReason : "Manuell neugestartet")
-                    : "Restart fehlgeschlagen"
-            };
-
-            Console.WriteLine($"📝 Restart-Historie-Eintrag erstellt");
-
-            _context.AppLaunchHistories.Add(history);
-            await _context.SaveChangesAsync();
 
             if (success)
             {

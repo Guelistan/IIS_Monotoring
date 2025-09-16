@@ -55,8 +55,9 @@ namespace AppManager.Pages.Admin
                 Vorname = NewUser.Vorname,
                 Abteilung = NewUser.Abteilung,
                 IsActive = true,
-                EmailConfirmed = false,
-                CreatedAt = DateTime.Now
+                EmailConfirmed = true,  // In Windows Auth immer true
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = User.Identity?.Name ?? "System"
             };
 
             var tempPassword = Path.GetRandomFileName().Replace(".", "").Substring(0, 10) + "!";
@@ -113,7 +114,6 @@ namespace AppManager.Pages.Admin
                 user.IsActive = EditUser.IsActive;
                 user.Vorname = EditUser.Vorname;
                 user.Abteilung = EditUser.Abteilung;
-                user.UpdatedAt = DateTime.Now;
 
                 await _userManager.UpdateAsync(user);
             }
