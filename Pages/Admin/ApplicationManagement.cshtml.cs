@@ -21,14 +21,16 @@ namespace AppManager.Pages.Admin
         private readonly ILogger<ApplicationManagementModel> _logger;
         private readonly AppManager.Data.AppDbContext _db;
         private readonly UserManager<AppManager.Data.AppUser> _userManager;
-        private readonly AppService _appService;
+    private readonly AppService _appService;
+    private readonly ProgramManagerService _programManager;
 
-        public ApplicationManagementModel(ILogger<ApplicationManagementModel> logger, AppManager.Data.AppDbContext db, UserManager<AppManager.Data.AppUser> userManager, AppService appService)
+        public ApplicationManagementModel(ILogger<ApplicationManagementModel> logger, AppManager.Data.AppDbContext db, UserManager<AppManager.Data.AppUser> userManager, AppService appService, ProgramManagerService programManager)
         {
             _logger = logger;
             _db = db;
             _userManager = userManager;
             _appService = appService;
+            _programManager = programManager;
         }
 
         public List<AppManager.Models.Application> Applications { get; set; } = new();
@@ -221,6 +223,7 @@ namespace AppManager.Pages.Admin
                     {
                         _logger.LogInformation("AppPool {Pool} successfully started by user {User}", app.IISAppPoolName, currentUser.UserName);
                         TempData["SuccessMessage"] = message;
+                        await _programManager.LogAppActivityAsync(app, "IIS-Start", message);
                     }
                 }
                 else
@@ -274,6 +277,7 @@ namespace AppManager.Pages.Admin
                     {
                         _logger.LogInformation("AppPool {Pool} successfully stopped by user {User}", app.IISAppPoolName, currentUser.UserName);
                         TempData["SuccessMessage"] = message;
+                        await _programManager.LogAppActivityAsync(app, "IIS-Stop", message);
                     }
                 }
                 else
@@ -326,6 +330,7 @@ namespace AppManager.Pages.Admin
                     {
                         _logger.LogInformation("AppPool {Pool} successfully recycled by user {User}", app.IISAppPoolName, currentUser.UserName);
                         TempData["SuccessMessage"] = message;
+                        await _programManager.LogAppActivityAsync(app, "IIS-Recycle", message);
                     }
                 }
                 catch (UnauthorizedAccessException uaEx)
@@ -381,6 +386,7 @@ namespace AppManager.Pages.Admin
                     else
                     {
                         TempData["SuccessMessage"] = "AppPool recycelt.";
+                        await _programManager.LogAppActivityAsync(app, "IIS-Recycle", "AppPool recycelt");
                     }
                 }
                 catch (UnauthorizedAccessException uaEx)

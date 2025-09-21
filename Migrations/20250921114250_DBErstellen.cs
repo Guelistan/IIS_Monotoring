@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AppManager.Migrations
 {
     /// <inheritdoc />
-    public partial class DBerstelen : Migration
+    public partial class DBErstellen : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -59,14 +59,16 @@ namespace AppManager.Migrations
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "TEXT", nullable: false),
-                    IsGlobalAdmin = table.Column<bool>(type: "INTEGER", nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsGlobalAdmin = table.Column<bool>(type: "INTEGER", nullable: false),
+                    WindowsSid = table.Column<string>(type: "TEXT", nullable: true),
+                    WindowsUsername = table.Column<string>(type: "TEXT", nullable: true),
+                    DomainName = table.Column<string>(type: "TEXT", nullable: true),
                     Vorname = table.Column<string>(type: "TEXT", nullable: true),
                     Nachname = table.Column<string>(type: "TEXT", nullable: true),
                     Abteilung = table.Column<string>(type: "TEXT", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     CreatedBy = table.Column<string>(type: "TEXT", nullable: true),
-                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     UserName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
@@ -274,6 +276,9 @@ namespace AppManager.Migrations
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
+                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Action = table.Column<string>(type: "TEXT", nullable: true),
+                    Details = table.Column<string>(type: "TEXT", nullable: true),
                     UserId = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>

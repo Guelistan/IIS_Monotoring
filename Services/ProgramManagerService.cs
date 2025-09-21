@@ -9,16 +9,19 @@ using AppManager.Data;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
+#nullable enable
+
 namespace AppManager.Services
 {
+    // 🎯 FACADE PATTERN: Einfache Schnittstelle für komplexe Operationen
     public class ProgramManagerService
     {
-        private readonly Microsoft.Extensions.Logging.ILogger<ProgramManagerService> _logger;
+        private readonly ILogger<ProgramManagerService> _logger;
         private readonly AppDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public ProgramManagerService(
-            Microsoft.Extensions.Logging.ILogger<ProgramManagerService> logger,
+            ILogger<ProgramManagerService> logger,
             AppDbContext dbContext,
             IHttpContextAccessor httpContextAccessor)
         {
@@ -26,6 +29,7 @@ namespace AppManager.Services
             _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
         }
+
         #region CPU Usage
 
         public double? GetCpuUsageForProcess(int processId)
@@ -80,29 +84,71 @@ namespace AppManager.Services
 
         #region Activity Logging
 
-        private async Task LogAppActivityAsync(Application app, string action, string reason = "")
+        private (string? userId, string windowsUsername) ResolveCurrentUser()
         {
             try
             {
-                var currentUser = _httpContextAccessor.HttpContext?.User;
-                var userId = currentUser?.Identity?.IsAuthenticated == true 
-                    ? currentUser.Identity.Name 
-                    : "System";
+                var principal = _httpContextAccessor.HttpContext?.User;
+                var windowsUsername = principal?.Identity?.Name ?? "System"; // e.g., DOMAIN\\User
 
+                // Claims aus Negotiate-Auth (Program.cs) – werden beim Login gesetzt
+                var sid = principal?.Claims.FirstOrDefault(c => c.Type == "windows_sid")?.Value;
+                var claimUser = principal?.Claims.FirstOrDefault(c => c.Type == "windows_username")?.Value ?? windowsUsername;
+
+                // 1) Versuche SID -> User
+                var user = !string.IsNullOrEmpty(sid)
+                    ? _dbContext.Users.FirstOrDefault(u => u.WindowsSid == sid)
+                    : null;
+
+                // 2) Fallback: WindowsUsername/UserName
+                if (user == null && !string.IsNullOrEmpty(claimUser))
+                {
+                    user = _dbContext.Users.FirstOrDefault(u => u.WindowsUsername == claimUser || u.UserName == claimUser);
+                }
+
+                // 3) Letzter Fallback: ein GlobalAdmin/Admin
+                user ??= _dbContext.Users.FirstOrDefault(u => u.IsGlobalAdmin)
+                         ?? _dbContext.Users.FirstOrDefault(u => u.UserName == "admin");
+
+                return (user?.Id, windowsUsername);
+            }
+            catch
+            {
+                // Im Zweifel ohne UserId, aber WindowsName zurückgeben – Aufrufer entscheidet über Fallback
+                return (null, _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "System");
+            }
+        }
+
+        public async Task LogAppActivityAsync(Application app, string action, string reason = "")
+        {
+            try
+            {
+                var (resolvedUserId, windowsUsername) = ResolveCurrentUser();
+
+                // Absicherung: UserId ist in der DB als Required + FK hinterlegt → setze Admin-Fallback
+                if (string.IsNullOrEmpty(resolvedUserId))
+                {
+                    var fallback = _dbContext.Users.FirstOrDefault(u => u.IsGlobalAdmin)
+                                   ?? _dbContext.Users.FirstOrDefault(u => u.UserName == "admin");
+                    resolvedUserId = fallback?.Id ?? throw new InvalidOperationException("Kein gültiger AppUser für History-Eintrag verfügbar.");
+                }
+
+                // 🎯 FACTORY PATTERN: Zentralisierte Objekt-Erstellung
                 var launchHistory = new AppLaunchHistory
                 {
                     ApplicationId = app.Id,
-                    UserId = userId,
-                    WindowsUsername = userId,
+                    UserId = resolvedUserId,
+                    WindowsUsername = windowsUsername,
+                    IISAppPoolName = app.IISAppPoolName ?? string.Empty,
                     LaunchTime = DateTime.UtcNow,
                     Action = action,
-                    Reason = string.IsNullOrEmpty(reason) ? action : reason
+                    Reason = reason
                 };
 
                 _dbContext.AppLaunchHistories.Add(launchHistory);
                 await _dbContext.SaveChangesAsync();
-                
-                _logger.LogInformation($"📋 App activity logged: {action} - {app.Name} (User: {userId})");
+
+                _logger.LogInformation($"📋 App activity logged: {action} - {app.Name} (UserId: {resolvedUserId}, Windows: {windowsUsername})");
             }
             catch (Exception ex)
             {
@@ -114,19 +160,20 @@ namespace AppManager.Services
 
         #region Program Control
 
+        // Komplexe Prozess-Verwaltung hinter einfacher API
         public async Task<bool> StartProgramAsync(Application app)
         {
             try
             {
                 _logger.LogInformation($"🚀 Versuche zu starten: {app.ExecutablePath}");
-                
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = app.ExecutablePath,
                     UseShellExecute = true,
                     CreateNoWindow = false,
-                    WorkingDirectory = string.IsNullOrEmpty(app.WorkingDirectory) 
-                        ? Environment.GetFolderPath(Environment.SpecialFolder.System) 
+                    WorkingDirectory = string.IsNullOrEmpty(app.WorkingDirectory)
+                        ? Environment.GetFolderPath(Environment.SpecialFolder.System)
                         : app.WorkingDirectory
                 };
 
@@ -136,16 +183,16 @@ namespace AppManager.Services
                 }
 
                 var process = await Task.Run(() => Process.Start(startInfo));
-                
+
                 if (process != null)
                 {
                     app.ProcessId = process.Id;
                     app.IsStarted = true;
                     _logger.LogInformation($"✅ Erfolgreich gestartet! PID: {process.Id}");
-                    
+
                     // Activity loggen
                     await LogAppActivityAsync(app, "Start", $"App gestartet (PID: {process.Id})");
-                    
+
                     return true;
                 }
 
@@ -155,7 +202,10 @@ namespace AppManager.Services
             catch (Exception ex)
             {
                 _logger.LogError($"❌ FEHLER beim Starten von {app.Name}: {ex.Message}");
+
+                // Fehler loggen
                 await LogAppActivityAsync(app, "Start-Fehler", $"Fehler beim Starten: {ex.Message}");
+
                 return false;
             }
         }
@@ -180,12 +230,12 @@ namespace AppManager.Services
                 app.IsStarted = false;
                 var processId = app.ProcessId;
                 app.ProcessId = null;
-                
+
                 _logger.LogInformation($"⏹️ {app.Name} gestoppt");
-                
+
                 // Activity loggen
                 await LogAppActivityAsync(app, "Stop", $"App gestoppt" + (processId.HasValue ? $" (PID: {processId})" : ""));
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -193,10 +243,10 @@ namespace AppManager.Services
                 _logger.LogError($"❌ Fehler beim Stoppen: {ex.Message}");
                 app.IsStarted = false;
                 app.ProcessId = null;
-                
+
                 // Fehler loggen
                 await LogAppActivityAsync(app, "Stop-Fehler", $"Fehler beim Stoppen: {ex.Message}");
-                
+
                 return false;
             }
         }
@@ -204,10 +254,10 @@ namespace AppManager.Services
         public async Task<bool> RestartProgramAsync(Application app)
         {
             _logger.LogInformation($"🔄 Neustart von {app.Name}...");
-            
+
             // Activity loggen
             await LogAppActivityAsync(app, "Restart", "App wird neu gestartet");
-            
+
             await StopProgramAsync(app);
             await Task.Delay(2000);
             return await StartProgramAsync(app);

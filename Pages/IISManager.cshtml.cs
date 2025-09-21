@@ -2,20 +2,25 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Authorization;
 using AppManager.Services;
+using AppManager.Data;
+using AppManager.Models;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using System;
+using Microsoft.EntityFrameworkCore;
 
 namespace AppManager.Pages
 {
     [Authorize]
-    public class IISManagerModel(AppService appService, ILogger<IISManagerModel> logger) : PageModel
+    public class IISManagerModel(AppService appService, ILogger<IISManagerModel> logger, AppDbContext db, ProgramManagerService programManager) : PageModel
     {
         private readonly AppService _appService = appService;
         private readonly ILogger<IISManagerModel> _logger = logger;
+        private readonly AppDbContext _db = db;
+        private readonly ProgramManagerService _programManager = programManager;
 
         public List<AppPoolInfo> AppPools { get; set; } = [];
         public Dictionary<string, double> AppPoolCpuUsage { get; set; } = [];
@@ -58,10 +63,14 @@ namespace AppManager.Pages
             if (success)
             {
                 TempData["SuccessMessage"] = $"✅ AppPool '{poolName}' erfolgreich gestartet!";
+                var app = await GetOrCreateAppForPoolAsync(poolName);
+                await _programManager.LogAppActivityAsync(app, "IIS-Start", message);
             }
             else
             {
                 TempData["ErrorMessage"] = $"❌ Fehler beim Starten: {message}";
+                var app = await GetOrCreateAppForPoolAsync(poolName);
+                await _programManager.LogAppActivityAsync(app, "IIS-Start-Fehler", message);
             }
             
             return RedirectToPage();
@@ -78,10 +87,14 @@ namespace AppManager.Pages
             if (success)
             {
                 TempData["SuccessMessage"] = $"✅ AppPool '{poolName}' erfolgreich gestoppt!";
+                var app = await GetOrCreateAppForPoolAsync(poolName);
+                await _programManager.LogAppActivityAsync(app, "IIS-Stop", message);
             }
             else
             {
                 TempData["ErrorMessage"] = $"❌ Fehler beim Stoppen: {message}";
+                var app = await GetOrCreateAppForPoolAsync(poolName);
+                await _programManager.LogAppActivityAsync(app, "IIS-Stop-Fehler", message);
             }
 
             return RedirectToPage();
@@ -98,13 +111,37 @@ namespace AppManager.Pages
             if (success)
             {
                 TempData["SuccessMessage"] = $"✅ AppPool '{poolName}' erfolgreich recycelt!";
+                var app = await GetOrCreateAppForPoolAsync(poolName);
+                await _programManager.LogAppActivityAsync(app, "IIS-Recycle", message);
             }
             else
             {
                 TempData["ErrorMessage"] = $"❌ Fehler beim Recycling: {message}";
+                var app = await GetOrCreateAppForPoolAsync(poolName);
+                await _programManager.LogAppActivityAsync(app, "IIS-Recycle-Fehler", message);
             }
 
             return RedirectToPage();
+        }
+
+        private async Task<Application> GetOrCreateAppForPoolAsync(string poolName)
+        {
+            var app = await _db.Applications.FirstOrDefaultAsync(a => a.IsIISApplication && a.IISAppPoolName == poolName);
+            if (app != null) return app;
+
+            app = new Application
+            {
+                Id = Guid.NewGuid(),
+                Name = $"AppPool: {poolName}",
+                Description = "Automatisch aus IIS Manager erfasst",
+                IsIISApplication = true,
+                IISAppPoolName = poolName,
+                ExecutablePath = string.Empty,
+                LastLaunchTime = DateTime.Now
+            };
+            _db.Applications.Add(app);
+            await _db.SaveChangesAsync();
+            return app;
         }
 
         // 🔍 Helper Methods für UI

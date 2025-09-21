@@ -151,21 +151,8 @@ namespace AppManager.Pages.Admin
             bool success = await _programManager.StopProgramAsync(app);
             Console.WriteLine($"⏹️ Stop-Ergebnis: {success}");
 
-            var history = new AppLaunchHistory
-            {
-                ApplicationId = appId,
-                UserId = _userManager.GetUserId(User) ?? string.Empty,
-                LaunchTime = DateTime.Now,
-                Action = "Stop",
-                Reason = success
-                    ? (!string.IsNullOrWhiteSpace(customReason) ? customReason : "Manuell gestoppt")
-                    : "Stop fehlgeschlagen"
-            };
-
-            Console.WriteLine($"📝 Stop-Historie-Eintrag erstellt");
-
-            _context.AppLaunchHistories.Add(history);
-            await _context.SaveChangesAsync();
+            // ❌ ENTFERNT: Doppelte History-Erstellung!
+            // Der ProgramManagerService.StopProgramAsync() macht das bereits automatisch
 
             if (success)
             {

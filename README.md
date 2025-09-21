@@ -1,232 +1,76 @@
-# 🔧 IIS Monitoring & Application Manager
+Hier ist eine Zusammenfassung der durchgeführten Änderungen für den Commit:
 
-Ein sicheres und robustes ASP.NET Core Web-Tool für das Management von Anwendungen und IIS Application Pools.
+## 🔧 **Windows Authentication Integration & Code Cleanup**
 
-## ✨ Features
+### ✅ **Implementierte Änderungen:**
 
-### 🚀 **Anwendungsverwaltung**
-- **Starten/Stoppen** von Windows-Anwendungen
-- **Überwachung** laufender Prozesse
-- **Restart-Management** mit Fehlerbehandlung
-- **Kategorie-basierte** Organisation
+#### **1. Windows Authentication System**
+- **Program.cs**: Komplette Umstellung von Forms-Auth auf Windows Authentication
+  - Negotiate-Provider für Kerberos/NTLM Support
+  - Custom Claims Transformation für Windows-Benutzer
+  - Authorization Policies für Windows-basierte Authentifizierung
+  - Entfernung aller Cookie-Auth Konfigurationen
 
-### 🖥️ **IIS Integration** 
-- **Automatisches Auslesen** aller IIS Application Pools
-- **Start/Stop/Restart/Recycle** Operationen
-- **Plattformunabhängig** durch Reflection-basierte Integration
-- **Fehlertoleranz** mit graceful fallbacks
+- **WindowsUserClaimsTransformation.cs**: Neuer Service für Windows-Benutzer Integration
+  - Automatische Benutzer-Erstellung aus Windows Identity
+  - Active Directory Integration (Domain-Support)
+  - Claims-Mapping von Windows zu ASP.NET Identity
+  - Fehlerbehandlung für Domain-Verbindungsprobleme
 
-### 🛡️ **Sicherheit & Robustheit**
-- **Windows Authentication** Support (Negotiate + Cookies)
-- **[Authorize]** Schutz für Admin-Bereiche
-- **Input Validation** gegen Injection-Angriffe
-- **Async/Await** Pattern für bessere Performance
-- **Strukturiertes Logging** für Audit-Trails
+#### **2. AppUser Model Cleanup**
+- **AppUser.cs**: Bereinigung redundanter Felder
+  - Entfernung doppelter DateTime-Felder (UpdatedAt)
+  - Integration Windows-spezifischer Felder (WindowsSid, WindowsUsername, DomainName)
+  - Konsolidierung Department-Felder
+  - Beibehaltung aller essentiellen Identity-Properties
 
-### 📊 **Monitoring & Überwachung**
-- **CPU-Verbrauch** Monitoring mit Performance Counters
-- **Launch History** mit Benutzer-Tracking
-- **Real-time Status** Updates
-- **Owner-basierte** Zugriffskontrolle
+#### **3. History System Korrektur**
+- **ProgramManagerService.cs**: Erweitert um Activity-Logging
+  - Neue `LogAppActivityAsync()` Methode für strukturiertes Logging
+  - Integration mit bestehendem `AppLaunchHistory` System
+  - Automatische Benutzer-Erfassung über Windows Authentication
+  - HTTP Context Accessor für Session-Management
 
-**📊 Diagramme:** Siehe [DIAGRAMS.md](DIAGRAMS.md) für Use Case und Klassendiagramme
+- **Dashboard.cshtml.cs**: Entfernung redundanter History-Erstellung
+  - Vermeidung von Doppeleinträgen
+  - Vereinfachung der Start/Stop/Restart Handlers
+  - Delegation aller History-Funktionen an Service Layer
 
-## Aktuelle Technische Konfiguration
+#### **4. Dependency Injection Updates**
+- **Program.cs**: Erweiterte Service-Registrierung
+  - `IHttpContextAccessor` für Service-basierte User-Erkennung
+  - Korrekte Reihenfolge der Authentication Services
+  - Identity Core statt Full Identity für Windows-Umgebung
 
-### Backend-Stack
+### ⚠️ **Bekannte Issues (TODO für morgen):**
 
-- **Framework:** ASP.NET Core 9.0 (ohne Kestrel - Compliance)
-- **Frontend:** Razor Pages
-- **Datenbank:** SQL Server mit Entity Framework Core 8.0.11
-- **Authentifizierung:** ASP.NET Core Identity + Windows Auth
-- **ORM:** Entity Framework Core (downgrade für Stabilität)
+#### **1. History-Logging funktioniert noch nicht**
+- Activity-Einträge werden nicht korrekt in die Datenbank geschrieben
+- Benutzer-Zuordnung zwischen Windows Auth und Identity System problematisch
+- Debugging erforderlich für Service-to-Database Integration
 
-### Server-Umgebungen
+#### **2. Dashboard Cleanup erforderlich**
+- **Doppelte/unwichtige Ansichten** im Admin-Dashboard entfernen
+- **Windows Apps Seite** ist redundant und kann komplett entfernt werden
+- UI-Vereinfachung und bessere Struktur der Admin-Bereiche
+- Überflüssige Navigation und Views aufräumen
 
-- **Development:** SQL Server LocalDB "AppManagerTest"
-- **Production:** buhlertal123 Server (APPUSER Datenbank)
-- **Verbindung:** Windows-Authentifizierung (Trusted_Connection=true)
+#### **3. Authentication Files Cleanup**
+- Alte Forms-Auth Dateien noch vorhanden:
+  - `Login.cshtml`, `Register.cshtml`
+  - `ConfirmEmail.cshtml`, `ResetPassword.cshtml`
+  - Account-Controller und verwandte Views
+- Complete Entfernung aller Forms-Auth Relikte
 
-## Datenbankmodelle (Implementiert)
+#### **4. IIS-Konfiguration**
+- Windows Authentication in IIS aktivieren
+- Anonymous Authentication deaktivieren
+- web.config für Windows Auth optimieren
 
-### Applications
+### 🎯 **Nächste Schritte:**
+1. History-System Debugging und Korrektur
+2. Dashboard UI Cleanup und Windows Apps Seite entfernen
+3. Überflüssige Auth-Files komplett löschen
+4. IIS Windows Auth Konfiguration finalisieren
 
-```csharp
-- Id (Guid)
-- Name, Description, ExecutablePath
-- ProcessId, Arguments, WorkingDirectory  
-- RequiresAdmin, Category, Tags
-- IIS-Integration: AppPoolName, SiteName, IsIISApplication
-- LaunchHistory Navigation
-```
-
-### AppOwnership (App-Owner System)
-
-```csharp
-- UserId, ApplicationId (Beziehungen)
-- WindowsUsername (für Windows Auth)
-- IISAppPoolName (für IIS-Integration)
-- CreatedAt, CreatedBy
-```
-
-### AppLaunchHistory (Audit Trail)
-
-```csharp
-- ApplicationId, UserId
-- WindowsUsername, IISAppPoolName
-- Action, Reason, LaunchTime
-```
-
-## Wichtige Commands & Setup
-
-### Projekt erstellen (ABGESCHLOSSEN)
-
-```powershell
-dotnet new webapp -n AppManager
-cd AppManager
-```
-
-### NuGet Packages (INSTALLIERT)
-
-```powershell
-dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer oder Sqlite
-dotnet add package Microsoft.EntityFrameworkCore.Tools
-dotnet add package Microsoft.AspNetCore.Identity.UI
-```
-
-### SQL Server LocalDB Setup (KONFIGURIERT)
-
-```powershell
-sqllocaldb create "AppManagerTest" -s
-dotnet ef migrations add "SqlServerMigration"
-dotnet ef database update
-```
-
-### Build & Run
-
-```powershell
-taskkill /F /IM AppManager.exe  # Falls App läuft
-dotnet build
-dotnet run --launch-profile http
-```
-
-**URL:** <http://localhost:5130>
-
-## Projektstruktur (Aktuell)
-
-```text
-AppManager/
-├── Data/
-│   └── AppUser.cs (DbContext + Identity)
-├── Models/
-│   ├── Applications.cs (App-Definitionen)
-│   ├── AppOwnership.cs (User-App Berechtigungen)
-│   └── AppLaunchHistory.cs (Audit-Log)
-├── Services/
-│   ├── AppService.cs (App-Management)
-│   ├── ConsoleEmailSender.cs (Dev Email)
-│   └── ProgramManagerService.cs (Process Control)
-├── Pages/
-│   ├── Admin/ (Dashboard, Users, History)
-│   ├── Account/ (Login, Register, etc.)
-│   └── Shared/ (Layout, Partials)
-├── TestDataSeeder.cs (Development-Daten)
-├── ProductionSeeder.cs (Standard-Apps)
-└── Program.cs (Startup-Konfiguration)
-```
-
-## TestDataSeeder vs ProductionSeeder
-
-### TestDataSeeder.cs (Nur Development)
-
-- **Zweck:** Test- und Beispieldaten für Entwicklung
-- **Inhalt:** Dummy-Apps (Paint, Rechner), Test-Ownership
-- **Aktivierung:** Nur wenn `app.Environment.IsDevelopment()`
-- **Produktion:** Wird automatisch übersprungen
-
-### ProductionSeeder.cs (Alle Umgebungen)
-
-- **Zweck:** Standard Windows-Apps für alle Server
-- **Inhalt:** Explorer, Notepad, CMD
-- **Aktivierung:** Development + Production
-- **Produktion:** Läuft auf buhlertal123
-
-## Status & Nächste Schritte
-
-### Abgeschlossen
-
-- [x] Kestrel entfernt (Compliance erfüllt)
-- [x] SQL Server LocalDB Setup + Migration
-- [x] App-Owner Datenmodelle implementiert
-- [x] Windows-Authentifizierung konfiguriert
-- [x] Test- und Produktions-Seeder erstellt
-- [x] IIS-Integration Grundlagen
-- [x] **📊 Diagramm-Seite**: Use Case, Klassen- und ER-Diagramme integriert
-
-### In Arbeit
-
-- [ ] App-Owner Management UI
-- [ ] IIS App Pool Integration (echte Funktionalität)
-- [ ] Admin-Dashboard erweitern
-
-### TODO für buhlertal123 Server
-
-- [ ] Connection String auf Produktionsserver anpassen
-- [ ] Migration auf echtem SQL Server ausführen
-- [ ] Active Directory Integration für User-Import
-- [ ] IIS Management API Integration
-- [ ] Produktions-Deployment
-
-## Wichtige Connection Strings
-
-### Development (Aktiv)
-
-```json
-"Server=(localdb)\\MSSQLLocalDB;Database=AppManagerTest;Trusted_Connection=true;"
-```
-
-### Production (Vorbereitet)
-
-```json
-"Server=buhlertal123;Database=APPUSER;Trusted_Connection=true;"
-```
-
-## Bekannte Probleme & Lösungen
-
-### Build-Fehler "Process in use"
-
-```powershell
-taskkill /F /IM AppManager.exe
-dotnet build
-```
-
-### Migration Rollback
-
-```powershell
-dotnet ef database update NameDerVorherigenMigration
-# Dann Migration bearbeiten
-dotnet ef database update
-```
-
-### Kestrel Package prüfen
-
-```powershell
-dotnet list package | findstr -i kestrel
-```
-
-## Git Repository
-
-```powershell
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/Guelistan/Appmanager.git
-git push -u origin main
-```
-
----
-
-**Letzte Aktualisierung:** 23. Juli 2025  
-**Status:** Development-Phase abgeschlossen, bereit für App-Owner UI
+Das System läuft bereits mit Windows Authentication, benötigt aber noch Fine-Tuning für vollständige Funktionalität.

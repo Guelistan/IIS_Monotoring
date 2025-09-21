@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AppManager.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250916195544_CleanupAppUserModel")]
-    partial class CleanupAppUserModel
+    [Migration("20250921114250_DBErstellen")]
+    partial class DBErstellen
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

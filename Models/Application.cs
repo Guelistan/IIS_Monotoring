@@ -68,7 +68,7 @@ namespace AppManager.Models
         public string Category { get; set; }
 
         // Tags zur Kategorisierung/Suche (optional, z.B. "Finance;HR;Tool")
-        public string Tags { get; set; } 
+        public string Tags { get; set; }
 
         // Hinweis: 'Path' entfernt, bitte ExecutablePath verwenden
     }

@@ -85,10 +85,10 @@ builder.Services.AddAuthentication(options => {
 });
 
 // Claims Transformation für zusätzliche Identity-Integration
-builder.Services.AddScoped<IClaimsTransformation, WindowsUserClaimsTransformation>();
+// builder.Services.AddScoped<IClaimsTransformation, WindowsUserClaimsTransformation>(); // ❌ Temporär auskommentiert
 
 // 📧 Fake E-Mail-Sender für Entwicklung
-builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+// builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>(); // ❌ Temporär auskommentiert
 
 // HTTP Context Accessor für Service-basierte User-Erkennung
 builder.Services.AddHttpContextAccessor();
@@ -178,6 +178,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 // HTTPS-Redirect: only when configured/enabled. Default remains false for WTS.
+
 if (enforceHttps)
 {
     app.UseHttpsRedirection();
