@@ -1,5 +1,7 @@
 Hier ist eine Zusammenfassung der durchgeführten Änderungen für den Commit:
 
+ 
+
 ## 🔧 **Windows Authentication Integration & Code Cleanup**
 
 ### ✅ **Implementierte Änderungen:**

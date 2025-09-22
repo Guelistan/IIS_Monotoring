@@ -13,7 +13,7 @@ using System.Security.Claims;
 
 namespace AppManager.Services
 {
-    // 🎯 FACADE PATTERN: Einfache Schnittstelle für komplexe Operationen
+    // FACADE PATTERN: Einfache Schnittstelle für komplexe Operationen ihre merkmale sind Kapselung, Vereinfachung und Flexibilität
     public class ProgramManagerService
     {
         private readonly ILogger<ProgramManagerService> _logger;
@@ -23,22 +23,25 @@ namespace AppManager.Services
         public ProgramManagerService(
             ILogger<ProgramManagerService> logger,
             AppDbContext dbContext,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor)// Konstruktor mit Dependency Injection für Logger, DbContext und HttpContextAccessor 
         {
             _logger = logger;
             _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
         }
+        // endregion des Konstruktors
 
-        #region CPU Usage
 
-        public double? GetCpuUsageForProcess(int processId)
+        #region CPU Nutzung
+
+        // Liefert den CPU-Auslastungs-Wert des Prozesses anhand der Prozess-ID in Prozent
+        public double? GetCpuUsageForProcess(int processId)// Methode zur Ermittlung der CPU-Auslastung eines einzelnen Prozesses
         {
             try
             {
                 using (var cpuCounter = new PerformanceCounter("Process", "% Processor Time", GetProcessInstanceName(processId), true))
                 {
-                    // Erstes Abfragen gibt oft 0 zurück, daher kurz warten
+                    // Das erste Abfragen liefert oft 0 zurück, daher kurze Wartezeit weil PerformanceCounter initialisiert werden muss
                     cpuCounter.NextValue();
                     System.Threading.Thread.Sleep(500);
                     return Math.Round(cpuCounter.NextValue() / Environment.ProcessorCount, 2);
@@ -46,10 +49,11 @@ namespace AppManager.Services
             }
             catch
             {
-                return null;
+                return null;// Bei Fehlern (z.B. Prozess nicht gefunden) wird null zurückgegeben
             }
         }
 
+        // Berechnet die gesamte CPU-Auslastung für eine Sammlung von Prozess-IDs
         public double? GetCpuUsageForAppPool(IEnumerable<int> processIds)
         {
             if (processIds == null) return null;
@@ -63,6 +67,7 @@ namespace AppManager.Services
             return Math.Round(values.Sum(), 2);
         }
 
+        // Ermittelt den Instanznamen des Prozesses anhand der Prozess-ID
         private string GetProcessInstanceName(int processId)
         {
             var process = Process.GetProcessById(processId);
@@ -82,31 +87,32 @@ namespace AppManager.Services
 
         #endregion
 
-        #region Activity Logging
+        #region Aktivitätsprotokollierung
 
+        // Ermittelt den aktuellen Benutzer anhand des HTTP-Kontexts und ermittelt die zugehörige UserId sowie den Windows-Benutzernamen
         private (string? userId, string windowsUsername) ResolveCurrentUser()
         {
             try
             {
                 var principal = _httpContextAccessor.HttpContext?.User;
-                var windowsUsername = principal?.Identity?.Name ?? "System"; // e.g., DOMAIN\\User
+                var windowsUsername = principal?.Identity?.Name ?? "System"; // Beispiel: DOMAIN\User
 
-                // Claims aus Negotiate-Auth (Program.cs) – werden beim Login gesetzt
+                // Auslesen der Claims aus der Negotiate-Authentifizierung, die beim Login gesetzt werden
                 var sid = principal?.Claims.FirstOrDefault(c => c.Type == "windows_sid")?.Value;
                 var claimUser = principal?.Claims.FirstOrDefault(c => c.Type == "windows_username")?.Value ?? windowsUsername;
 
-                // 1) Versuche SID -> User
+                // 1) Versuch, den Benutzer über die SID zu finden
                 var user = !string.IsNullOrEmpty(sid)
                     ? _dbContext.Users.FirstOrDefault(u => u.WindowsSid == sid)
                     : null;
 
-                // 2) Fallback: WindowsUsername/UserName
+                // 2) Fallback: Suche anhand des Windows-Benutzernamens oder UserNames
                 if (user == null && !string.IsNullOrEmpty(claimUser))
                 {
                     user = _dbContext.Users.FirstOrDefault(u => u.WindowsUsername == claimUser || u.UserName == claimUser);
                 }
 
-                // 3) Letzter Fallback: ein GlobalAdmin/Admin
+                // 3) Letzter Fallback: Verwende einen GlobalAdmin oder den Benutzer "admin"
                 user ??= _dbContext.Users.FirstOrDefault(u => u.IsGlobalAdmin)
                          ?? _dbContext.Users.FirstOrDefault(u => u.UserName == "admin");
 
@@ -114,18 +120,19 @@ namespace AppManager.Services
             }
             catch
             {
-                // Im Zweifel ohne UserId, aber WindowsName zurückgeben – Aufrufer entscheidet über Fallback
+                // Falls ein Fehler auftritt, wird als Fallback kein UserId und der Windows-Benutzername "System" verwendet
                 return (null, _httpContextAccessor.HttpContext?.User?.Identity?.Name ?? "System");
             }
         }
 
+        // Protokolliert Aktivitätsereignisse (z.B. Start, Stop, Neustart) der Anwendung in der Datenbank
         public async Task LogAppActivityAsync(Application app, string action, string reason = "")
         {
             try
             {
                 var (resolvedUserId, windowsUsername) = ResolveCurrentUser();
 
-                // Absicherung: UserId ist in der DB als Required + FK hinterlegt → setze Admin-Fallback
+                // Sicherstellen, dass eine gültige UserId vorhanden ist. Ist dies nicht der Fall, wird ein Fallback verwendet
                 if (string.IsNullOrEmpty(resolvedUserId))
                 {
                     var fallback = _dbContext.Users.FirstOrDefault(u => u.IsGlobalAdmin)
@@ -133,7 +140,7 @@ namespace AppManager.Services
                     resolvedUserId = fallback?.Id ?? throw new InvalidOperationException("Kein gültiger AppUser für History-Eintrag verfügbar.");
                 }
 
-                // 🎯 FACTORY PATTERN: Zentralisierte Objekt-Erstellung
+                // FACTORY PATTERN: Zentralisierte Erstellung des Protokoll-Eintrags
                 var launchHistory = new AppLaunchHistory
                 {
                     ApplicationId = app.Id,
@@ -148,24 +155,24 @@ namespace AppManager.Services
                 _dbContext.AppLaunchHistories.Add(launchHistory);
                 await _dbContext.SaveChangesAsync();
 
-                _logger.LogInformation($"📋 App activity logged: {action} - {app.Name} (UserId: {resolvedUserId}, Windows: {windowsUsername})");
+                _logger.LogInformation($"App-Aktivität protokolliert: {action} - {app.Name} (UserId: {resolvedUserId}, Windows: {windowsUsername})");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Fehler beim Speichern der App-Aktivität");
+                _logger.LogError(ex, "Fehler beim Speichern der App-Aktivität");
             }
         }
 
         #endregion
 
-        #region Program Control
+        #region Programmsteuerung
 
-        // Komplexe Prozess-Verwaltung hinter einfacher API
+        // Startet ein Programm anhand der im Application-Objekt hinterlegten Informationen
         public async Task<bool> StartProgramAsync(Application app)
         {
             try
             {
-                _logger.LogInformation($"🚀 Versuche zu starten: {app.ExecutablePath}");
+                _logger.LogInformation($"Versuche zu starten: {app.ExecutablePath}");
 
                 var startInfo = new ProcessStartInfo
                 {
@@ -186,30 +193,32 @@ namespace AppManager.Services
 
                 if (process != null)
                 {
+                    // Speichert die Prozess-ID und markiert die Anwendung als gestartet
                     app.ProcessId = process.Id;
                     app.IsStarted = true;
-                    _logger.LogInformation($"✅ Erfolgreich gestartet! PID: {process.Id}");
+                    _logger.LogInformation($"Erfolgreich gestartet! PID: {process.Id}");
 
-                    // Activity loggen
+                    // Protokolliert die Start-Aktivität der Anwendung
                     await LogAppActivityAsync(app, "Start", $"App gestartet (PID: {process.Id})");
 
                     return true;
                 }
 
-                _logger.LogError("❌ Process.Start() gab null zurück");
+                _logger.LogError("Process.Start() gab null zurück");
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ FEHLER beim Starten von {app.Name}: {ex.Message}");
+                _logger.LogError($"Fehler beim Starten von {app.Name}: {ex.Message}");
 
-                // Fehler loggen
+                // Protokolliert den Fehler im Zusammenhang mit dem Startvorgang
                 await LogAppActivityAsync(app, "Start-Fehler", $"Fehler beim Starten: {ex.Message}");
 
                 return false;
             }
         }
 
+        // Stoppt ein Programm über die gespeicherte Prozess-ID
         public async Task<bool> StopProgramAsync(Application app)
         {
             try
@@ -219,6 +228,7 @@ namespace AppManager.Services
                     var process = await Task.Run(() => Process.GetProcessById(app.ProcessId.Value));
                     if (!process.HasExited)
                     {
+                        // Versucht das Hauptfenster des Prozesses zu schließen, bei längerer Verzögerung wird der Prozess beendet
                         process.CloseMainWindow();
                         if (!process.WaitForExit(3000))
                         {
@@ -231,31 +241,32 @@ namespace AppManager.Services
                 var processId = app.ProcessId;
                 app.ProcessId = null;
 
-                _logger.LogInformation($"⏹️ {app.Name} gestoppt");
+                _logger.LogInformation($"{app.Name} wurde gestoppt");
 
-                // Activity loggen
+                // Protokolliert die Stop-Aktivität der Anwendung
                 await LogAppActivityAsync(app, "Stop", $"App gestoppt" + (processId.HasValue ? $" (PID: {processId})" : ""));
 
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"❌ Fehler beim Stoppen: {ex.Message}");
+                _logger.LogError($"Fehler beim Stoppen: {ex.Message}");
                 app.IsStarted = false;
                 app.ProcessId = null;
 
-                // Fehler loggen
+                // Protokolliert den Fehler im Zusammenhang mit dem Stopvorgang
                 await LogAppActivityAsync(app, "Stop-Fehler", $"Fehler beim Stoppen: {ex.Message}");
 
                 return false;
             }
         }
 
+        // Startet ein Programm neu, indem es zunächst gestoppt und dann wieder gestartet wird
         public async Task<bool> RestartProgramAsync(Application app)
         {
-            _logger.LogInformation($"🔄 Neustart von {app.Name}...");
+            _logger.LogInformation($"Starte {app.Name} neu...");
 
-            // Activity loggen
+            // Protokolliert den Neustart der Anwendung
             await LogAppActivityAsync(app, "Restart", "App wird neu gestartet");
 
             await StopProgramAsync(app);

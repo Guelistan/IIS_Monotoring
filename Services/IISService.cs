@@ -9,8 +9,11 @@ using System.Security.Principal;
 
 namespace AppManager.Services
 {
+    // Verwaltung von IIS Application Pools und Websites
+    // Diese Klasse bietet Methoden zur Steuerung von IIS Application Pools und zur Abfrage von Websites.
     public class IISService
     {
+        // StartApplicationPoolAsync: Startet den angegebenen Application Pool, wenn er gestoppt ist.
         public async Task<bool> StartApplicationPoolAsync(string appPoolName)
         {
             return await Task.Run(() =>
@@ -49,6 +52,7 @@ namespace AppManager.Services
             });
         }
 
+        // StopApplicationPoolAsync: Stoppt den angegebenen Application Pool, wenn er gestartet ist.
         public async Task<bool> StopApplicationPoolAsync(string appPoolName)
         {
             return await Task.Run(() =>
@@ -87,6 +91,7 @@ namespace AppManager.Services
             });
         }
 
+        // RestartApplicationPoolAsync: Recycelt den angegebenen Application Pool.
         public async Task<bool> RestartApplicationPoolAsync(string appPoolName)
         {
             return await Task.Run(() =>
@@ -117,6 +122,7 @@ namespace AppManager.Services
             });
         }
 
+        // GetApplicationPoolStatusAsync: Gibt den Status des angegebenen Application Pools zurück.
         public async Task<ObjectState?> GetApplicationPoolStatusAsync(string appPoolName)
         {
             return await Task.Run(() =>
@@ -145,6 +151,7 @@ namespace AppManager.Services
             });
         }
 
+        // GetApplicationPoolsAsync: Gibt eine Liste aller IIS Application Pool Namen zurück.
         public async Task<List<string>> GetApplicationPoolsAsync()
         {
             return await Task.Run(() =>
@@ -166,6 +173,7 @@ namespace AppManager.Services
             });
         }
 
+        // GetWebsitesAsync: Gibt eine Liste aller IIS Website Namen zurück.
         public async Task<List<string>> GetWebsitesAsync()
         {
             return await Task.Run(() =>
@@ -187,6 +195,7 @@ namespace AppManager.Services
             });
         }
 
+        // IsIISAvailableAsync: Prüft, ob IIS verfügbar ist und zählt die vorhandenen Application Pools.
         public async Task<bool> IsIISAvailableAsync()
         {
             return await Task.Run(() =>
@@ -208,6 +217,7 @@ namespace AppManager.Services
             });
         }
 
+        // GetApplicationInfoAsync: Liefert detaillierte Informationen einer Anwendung basierend auf dem App Pool und der Website.
         public async Task<IISApplicationInfo> GetApplicationInfoAsync(string appPoolName, string siteName)
         {
             return await Task.Run(() =>
@@ -251,6 +261,7 @@ namespace AppManager.Services
             });
         }
 
+        // GetAllApplicationsAsync: Listet alle IIS Anwendungen (SiteName, AppPath, AppPoolName) auf.
         public async Task<List<IISAppInfo>> GetAllApplicationsAsync()
         {
             return await Task.Run(() =>
@@ -286,6 +297,7 @@ namespace AppManager.Services
             });
         }
 
+        // RecycleAppPoolAsync: Recycelt den angegebenen IIS Application Pool.
         public async Task<bool> RecycleAppPoolAsync(string appPoolName)
         {
             return await Task.Run(() =>
@@ -316,6 +328,7 @@ namespace AppManager.Services
             });
         }
 
+        // GetAllAppPoolNames: Gibt eine Liste aller Namen der IIS Application Pools zurück.
         public List<string> GetAllAppPoolNames()
         {
             var appPoolNames = new List<string>();
@@ -329,6 +342,7 @@ namespace AppManager.Services
             return appPoolNames;
         }
 
+        // GetWorkerProcessIds: Gibt die Prozess-IDs aller Workerprozesse des angegebenen Application Pools zurück.
         public List<int> GetWorkerProcessIds(string appPoolName)
         {
             try
@@ -350,6 +364,7 @@ namespace AppManager.Services
             }
         }
 
+        // ResolveCurrentAppUserAsync: Ermittelt den aktuellen AppUser basierend auf der Windows-Identität.
         public async Task<AppUser> ResolveCurrentAppUserAsync()
         {
             return await Task.Run(() =>
@@ -377,6 +392,7 @@ namespace AppManager.Services
         }
     }
 
+    // Klassen zur Darstellung von IIS Anwendungseinformationen und Benutzerdetails
     public class IISApplicationInfo
     {
         public string AppPoolName { get; set; } = string.Empty;

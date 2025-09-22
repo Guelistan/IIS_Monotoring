@@ -17,8 +17,12 @@ namespace AppManager.Pages.Account
 
         public async Task<IActionResult> OnGetAsync()
         {
-            await Task.CompletedTask; // Macht es wirklich asynchron
-            return Page();
+            // Benutzer wirklich abmelden, indem der SignOutAsync aufgerufen wird
+            await _signInManager.SignOutAsync();
+            
+            // Benutzer nach erfolgreichem Logout zur Startseite umleiten
+            return RedirectToPage("/Index");
         }
     }
 }
+// ich brauche den log out um den user abzumelden, wenn er sich mit windows auth angemeldet hat. damit die seite nicht mehr zugreifbar ist.

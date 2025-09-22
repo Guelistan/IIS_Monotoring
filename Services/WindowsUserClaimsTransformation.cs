@@ -12,11 +12,13 @@ using AppManager.Data;
 
 namespace AppManager.Services
 {
+    // Diese Klasse transformiert die Claims eines Windows-Benutzers für die Authentifizierung
     public class WindowsUserClaimsTransformation : IClaimsTransformation
     {
         private readonly UserManager<AppManager.Data.AppUser> _userManager;
         private readonly ILogger<WindowsUserClaimsTransformation> _logger;
 
+        // Konstruktor mit Dependency Injection für UserManager und Logger
         public WindowsUserClaimsTransformation(
             UserManager<AppManager.Data.AppUser> userManager,
             ILogger<WindowsUserClaimsTransformation> logger)
@@ -25,16 +27,18 @@ namespace AppManager.Services
             _logger = logger;
         }
 
+        // Transformiert die Claims des übergebenen ClaimsPrincipal
         public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
         {
             // Nur für authentifizierte Windows-Benutzer fortfahren
-            if (principal.Identity == null || !principal.Identity.IsAuthenticated || 
+            if (principal.Identity == null || !principal.Identity.IsAuthenticated ||
                 !(principal.Identity is WindowsIdentity))
                 return principal;
 
             var windowsIdentity = (WindowsIdentity)principal.Identity;
             var sid = windowsIdentity.User?.Value;
 
+            // Prüfen, ob SID vorhanden ist
             if (string.IsNullOrEmpty(sid))
             {
                 _logger.LogWarning("Keine Windows SID gefunden für {Name}", principal.Identity.Name);
@@ -46,37 +50,39 @@ namespace AppManager.Services
             if (user == null)
                 return principal;
 
-            // Claims Liste erstellen
+            // Neue ClaimsIdentity für den Benutzer erstellen
             var identity = new ClaimsIdentity("Windows");
 
-            // Standard Claims
+            // Standard Claims hinzufügen
             identity.AddClaim(new Claim(ClaimTypes.Name, user.UserName));
             identity.AddClaim(new Claim(ClaimTypes.Role, "User")); // Default Rolle
 
-            // Rollen
+            // Rollen aus Identity hinzufügen
             var roles = await _userManager.GetRolesAsync(user);
             foreach (var role in roles)
                 identity.AddClaim(new Claim(ClaimTypes.Role, role));
 
-            // Windows Info
+            // Windows-spezifische Informationen als Claims hinzufügen
             if (!string.IsNullOrEmpty(sid))
                 identity.AddClaim(new Claim(ClaimTypes.Sid, sid));
             if (!string.IsNullOrEmpty(windowsIdentity.Name))
                 identity.AddClaim(new Claim("windows_username", windowsIdentity.Name));
 
+            // Rückgabe eines neuen ClaimsPrincipal mit den erweiterten Claims
             return new ClaimsPrincipal(identity);
         }
 
+        // Sucht einen existierenden Benutzer oder erstellt einen neuen anhand der Windows-Identität
         private async Task<AppManager.Data.AppUser> GetOrCreateUser(WindowsIdentity windowsIdentity, string sid)
         {
             try
             {
-                // Existierenden Benutzer suchen
+                // Existierenden Benutzer anhand des Windows-Logins suchen
                 var user = await _userManager.FindByLoginAsync("Windows", sid);
                 if (user != null)
                     return user;
 
-                // Neuen Benutzer aus AD-Info erstellen
+                // Benutzerinformationen aus Active Directory holen
                 using (var context = new PrincipalContext(ContextType.Domain))
                 {
                     var userPrincipal = UserPrincipal.FindByIdentity(context, IdentityType.Sid, sid);
@@ -86,7 +92,7 @@ namespace AppManager.Services
                         return null;
                     }
 
-                    // Neuen Benutzer anlegen
+                    // Neuen Benutzer anlegen und mit AD-Informationen füllen
                     user = new AppManager.Data.AppUser
                     {
                         UserName = windowsIdentity.Name,
@@ -96,16 +102,17 @@ namespace AppManager.Services
                         IsActive = true
                     };
 
+                    // Benutzer in der Datenbank speichern
                     var result = await _userManager.CreateAsync(user);
                     if (!result.Succeeded)
                     {
-                        _logger.LogError("Fehler beim Erstellen: {Errors}", 
+                        _logger.LogError("Fehler beim Erstellen: {Errors}",
                             string.Join(", ", result.Errors.Select(e => e.Description)));
                         return null;
                     }
 
-                    // Windows-Login verknüpfen
-                    await _userManager.AddLoginAsync(user, 
+                    // Windows-Login mit dem Benutzer verknüpfen
+                    await _userManager.AddLoginAsync(user,
                         new UserLoginInfo("Windows", sid, windowsIdentity.Name));
 
                     _logger.LogInformation("Neuer Windows-Benutzer: {Name}", user.UserName);
@@ -114,9 +121,19 @@ namespace AppManager.Services
             }
             catch (Exception ex)
             {
+                // Fehlerbehandlung und Logging
                 _logger.LogError(ex, "Fehler bei AD-Abfrage für {Name}", windowsIdentity.Name);
                 return null;
             }
         }
     }
 }
+
+/*Claims:
+Claims sind Aussagen über eine Identität, z. B. Name, Rolle oder andere Merkmale, die von einer vertrauenswürdigen 
+Instanz (z. B. einem Identity Provider) ausgestellt werden. Sie werden zur Autorisierung und Authentifizierung in Anwendungen genutzt.
+
+SID (Security Identifier):
+SID steht für Security Identifier und ist ein eindeutiger Bezeichner, der in Windows-Systemen jedem Benutzer, 
+jeder Gruppe oder jedem Sicherheitsprinzipal zugewiesen wird. Er dient zur Identifikation von Sicherheitsobjekten unabhängig von ihrem Anzeigenamen.*/
+

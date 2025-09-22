@@ -5,69 +5,65 @@
     ViewData["Title"] = "Anwendungsverwaltung";
 }
 
+<!-- Überschrift mit IIS-Status-Indikator -->
 <h1>Anwendungsverwaltung
-    <!-- IIS-Status-Indikator -->
+    <!-- Zeigt den IIS-Status als Badge an -->
     @if (Model.IisAvailable)
     {
         <span class="badge bg-success ms-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill me-1" viewBox="0 0 16 16">
-                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.061L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-            </svg>
+            <!-- Grünes Icon für verfügbaren IIS -->
+            <svg ...></svg>
             IIS Verfügbar
         </span>
     }
     else if (!string.IsNullOrEmpty(Model.IisErrorMessage))
     {
         <span class="badge bg-warning text-dark ms-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill me-1" viewBox="0 0 16 16">
-                <path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/>
-            </svg>
+            <!-- Gelbes Icon bei IIS-Problem -->
+            <svg ...></svg>
             IIS Problem
         </span>
     }
     else
     {
         <span class="badge bg-secondary ms-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-question-circle-fill me-1" viewBox="0 0 16 16">
-                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.496 6.033h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286a.237.237 0 0 0 .241.247zm2.325 6.443c.61 0 1.029-.394 1.029-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94 0 .533.425.927 1.01.927z"/>
-            </svg>
+            <!-- Graues Icon bei unbekanntem Status -->
+            <svg ...></svg>
             IIS Status unbekannt
         </span>
     }
 </h1>
 
-<!-- Erfolgsmeldung -->
+<!-- Erfolgsmeldung anzeigen, falls vorhanden -->
 @if (TempData["SuccessMessage"] != null)
 {
 <div class="alert alert-success">@TempData["SuccessMessage"]</div>
 }
 
-<!-- Fehlermeldung -->
+<!-- Fehlermeldung anzeigen, falls vorhanden -->
 @if (TempData["ErrorMessage"] != null)
 {
 <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
 }
 
-<!-- TempData-Nachrichten anzeigen -->
+<!-- Detaillierte Erfolgsmeldung mit Icon und Schließen-Button -->
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill me-2" viewBox="0 0 16 16">
-            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.061L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-        </svg>
+        <svg ...></svg>
         <strong>Erfolgreich:</strong> @TempData["SuccessMessage"]
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 }
 
+<!-- Detaillierte Fehlermeldung mit Ursachen und Lösungsvorschlägen -->
 @if (TempData["ErrorMessage"] != null)
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill me-2" viewBox="0 0 16 16">
-            <path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/>
-        </svg>
+        <svg ...></svg>
         <strong>Fehler:</strong> @TempData["ErrorMessage"]
         
+        <!-- Zusätzliche Hinweise bei bestimmten Fehlern -->
         @if (TempData["ErrorMessage"].ToString().Contains("Objektkennung") || TempData["ErrorMessage"].ToString().Contains("0x800710D8"))
         {
             <hr class="my-2">
@@ -91,18 +87,18 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 }
+
+<!-- Warnung bei IIS-Verbindungsproblemen mit Lösungsvorschlägen -->
 @if (!string.IsNullOrEmpty(Model.IisErrorMessage))
 {
     <div class="alert alert-warning d-flex align-items-center" role="alert">
         <div class="flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2" viewBox="0 0 16 16">
-                <path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/>
-                <path d="M9.05 9.435c-.018-.36-.218-.558-.579-.558-.361 0-.56.198-.578.558l-.048 2.022c-.01.23.153.397.393.397.24 0 .402-.167.393-.397l-.048-2.022zM8.507 12.90c-.266 0-.482.227-.482.494 0 .267.216.494.482.494.267 0 .484-.227.484-.494 0-.267-.217-.494-.484-.494z"/>
-            </svg>
+            <svg ...></svg>
         </div>
         <div class="flex-grow-1 ms-3">
             <h6 class="alert-heading">IIS-Verbindungsproblem</h6>
             <p class="mb-2">@Model.IisErrorMessage</p>
+            <!-- Lösungsvorschläge je nach Fehlertyp -->
             @if (Model.IisErrorMessage.Contains("Berechtigung") || Model.IisErrorMessage.Contains("Administrator"))
             {
                 <div class="small">
@@ -133,32 +129,37 @@
     </div>
 }
 
-<!-- Neue Anwendung hinzufügen -->
+<!-- Formular zum Hinzufügen einer neuen Anwendung -->
 <form method="post" asp-page-handler="Add">
     <div class="form-row">
+        <!-- Name der Anwendung -->
         <div class="form-group col-md-4">
             <label asp-for="NewApplication.Name">Name</label>
             <input asp-for="NewApplication.Name" class="form-control" />
             <span asp-validation-for="NewApplication.Name" class="text-danger"></span>
         </div>
+        <!-- IIS AppPool Name -->
         <div class="form-group col-md-4">
             <label asp-for="NewApplication.IISAppPoolName">IIS AppPool Name</label>
             <input asp-for="NewApplication.IISAppPoolName" class="form-control" />
         </div>
+        <!-- Checkbox für IIS-Anwendung -->
         <div class="form-group col-md-2">
             <label asp-for="NewApplication.IsIISApplication">IIS?</label>
             <input asp-for="NewApplication.IsIISApplication" type="checkbox" class="form-control" />
         </div>
+        <!-- Hinzufügen-Button -->
         <div class="form-group col-md-2 align-self-end">
             <button type="submit" class="btn btn-primary">Hinzufügen</button>
         </div>
     </div>
+    <!-- Verstecktes Feld für den Pfad -->
     <input type="hidden" asp-for="NewApplication.ExecutablePath" />
 </form>
 
 <hr />
 
-<!-- Liste der Anwendungen -->
+<!-- Tabelle mit allen Anwendungen -->
 <table class="table table-bordered table-striped">
     <thead>
         <tr>
@@ -172,6 +173,7 @@
         @foreach (var app in Model.Applications)
         {
         <tr>
+            <!-- Name und ggf. Owner-Badge -->
             <td style="width:45%">
                 @app.Name
                 @if (Model.CanManage(app.Id))
@@ -181,6 +183,7 @@
                 <br />
                 <small class="text-muted">@app.IISAppPoolName</small>
             </td>
+            <!-- Statusanzeige (gestartet/gestoppt) -->
             <td style="width:10%">
                 @if (app.IsStarted)
                 {
@@ -191,13 +194,15 @@
                     <span class="text-danger">Gestoppt</span>
                 }
             </td>
+            <!-- Zeitpunkt des letzten Starts -->
             <td style="width:15%">@app.LastLaunchTime.ToString("g")</td>
+            <!-- Steuerungsaktionen (Start/Stop/Restart) oder IIS Manager -->
             <td style="width:20%">
                 @if (Model.CanManage(app.Id))
                 {
                     @if (app.IsIISApplication)
                     {
-                        <!-- IIS Apps: Verweis auf IIS Manager -->
+                        <!-- IIS-Anwendungen: Link zum IIS Manager -->
                         <div class="btn-group btn-group-sm" role="group">
                             <span class="badge bg-info me-2">IIS App</span>
                             <a asp-page="/IISManager" class="btn btn-primary btn-sm" title="Im IIS Manager verwalten">
@@ -207,7 +212,7 @@
                     }
                     else
                     {
-                        <!-- Normale Apps: Lokale Steuerung -->
+                        <!-- Lokale Steuerung für normale Anwendungen -->
                         <form method="post" asp-page-handler="Start" style="display:inline">
                             <input type="hidden" name="applicationId" value="@app.Id" />
                             <button type="submit" class="btn btn-success btn-sm" title="Starten">▶️</button>
@@ -224,7 +229,7 @@
                 }
                 else
                 {
-                    <!-- Nicht berechtigt -->
+                    <!-- Aktionen deaktiviert, falls keine Berechtigung -->
                     @if (app.IsIISApplication)
                     {
                         <span class="badge bg-secondary">Keine IIS-Berechtigung</span>
@@ -238,8 +243,9 @@
                 }
             </td>
 
+            <!-- Owner-Zuweisung und CPU-Chart -->
             <td style="width:20%">
-                <!-- Owner assignment (visible only to global admins) -->
+                <!-- Owner-Zuweisung nur für globale Admins -->
                 @if (Model.CurrentUserIsGlobalAdmin)
                 {
                     <form method="post" asp-page-handler="AddOwner" class="form-inline">
@@ -255,7 +261,7 @@
                     </form>
                 }
 
-                <!-- CPU chart (right side) -->
+                <!-- CPU-Auslastung als Chart anzeigen -->
                 <div class="mt-2">
                     <canvas id="cpuChart-@app.Id" data-appid="@app.Id" width="120" height="80"></canvas>
                 </div>
@@ -265,21 +271,21 @@
     </tbody>
 </table>
 
+<!-- Chart.js für CPU-Auslastung einbinden -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Simple rendering: if CPU loads available in Model.CpuLoads, map by index
+    // Zeichnet für jede Anwendung einen CPU-Chart
     (function(){
         try{
             var loads = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CpuLoads));
             var names = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AppPoolNames));
-            // For each canvas, attempt to find matching app pool name by index
+            // Für jedes Canvas-Element den passenden Wert anzeigen
             document.querySelectorAll('canvas[id^="cpuChart-"]').forEach(function(canvas){
                 var appId = canvas.dataset.appid;
-                // naive: draw a placeholder if no data
+                // Platzhalterwert, falls keine Daten vorhanden
                 var ctx = canvas.getContext('2d');
                 var val = 0;
-                // attempt to find by name match (if app pool names map to application IISAppPoolName)
-                // fallback: use index-based mapping
+                // Zuordnung per Index (vereinfachte Logik)
                 var idx = 0;
                 if (loads && loads.length>0){ idx = 0; val = loads[idx]; }
                 new Chart(ctx, {
