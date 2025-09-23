@@ -26,6 +26,11 @@ using System.DirectoryServices.AccountManagement;
 using AppUser = AppManager.Data.AppUser;
 
 var builder = WebApplication.CreateBuilder(args);
+// builder.WebHost.ConfigureKestrel(options => {
+//     throw new InvalidOperationException("Kestrel ist deaktiviert. Bitte nur über IIS/IIS Express starten.");
+// });
+
+builder.WebHost.UseIIS();
 
 //  Datenbank: SQLite (Datei-basiert)
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -103,12 +108,6 @@ builder.Services.AddHttpLogging(logging =>
 {
     logging.LoggingFields = HttpLoggingFields.All;
 });
-
-// 🌐 URLs für Non-Development-Umgebung (bei IIS egal, wird ignoriert)
-if (!builder.Environment.IsDevelopment())
-{
-    builder.WebHost.UseUrls("http://localhost:5130", "https://localhost:5007");
-}
 
 // ⚙️ HTTPS-Redirect (konfigurierbar)
 // Default: disabled to avoid unerwartete Umleitungen auf WTS/Terminalserver.
