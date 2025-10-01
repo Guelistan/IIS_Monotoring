@@ -115,6 +115,7 @@ DEPLOYMENT BEFEHLE
 ------------------
 # Self-contained Publish:
 dotnet publish --configuration Release --self-contained true --runtime win-x64 --output "C:\Users\silav\Desktop\iismanager"
+dotnet publish -c Release -r win-x64 --self-contained true -o "C:\Users\silav\Desktop\puplish"
 
 # IIS Setup:
 Setup-IIS-Permissions.bat (bereits ausgefuhrt)

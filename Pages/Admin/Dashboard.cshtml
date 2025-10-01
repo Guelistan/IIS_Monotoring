@@ -9,7 +9,7 @@
     <!-- Quick Actions - Management Links -->
     <div class="btn-group" role="group">
         <a class="btn btn-outline-success" asp-page="/Admin/ApplicationManagement" title="Windows Apps verwalten">
-            � Windows Apps
+            � Applications
         </a>
         <a class="btn btn-outline-primary" asp-page="/IISManager" title="IIS AppPools verwalten">
             � IIS AppPools
@@ -18,7 +18,7 @@
         {
             <a class="btn btn-outline-warning" asp-page="/Admin/AppOwnership">� App-Owner</a>
             <a class="btn btn-outline-info" asp-page="/Admin/History">📜 History</a>
-    
+            <!-- Note: Remove Windows Apps capability intentionally disabled to avoid accidental DB deletions -->
         }
     </div>
 </div>
@@ -46,7 +46,6 @@ else
         <div class="card">
             <div class="card-header">
                 <h3 class="mb-0">� Anwendungsübersicht</h3>
-                <small class="text-muted">Schnellübersicht über alle deine Apps</small>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

@@ -5,8 +5,6 @@ using AppManager.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using AppManager.Services;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
@@ -35,8 +33,7 @@ namespace AppManager.Pages.Admin
 
         public List<AppManager.Models.Application> Applications { get; set; } = new();
         public AppManager.Models.Application NewApplication { get; set; } = new();
-        public List<float> CpuLoads { get; set; } = new();
-        public List<string> AppPoolNames { get; set; } = new();
+    // CPU load display for Windows apps was removed per request
         public string IisErrorMessage { get; set; } = string.Empty;
         public bool IisAvailable { get; set; } = false;
         // Load page data and authorization info
@@ -44,19 +41,17 @@ namespace AppManager.Pages.Admin
         {
             try
             {
-                // Load DB applications (prefer persisted entries) and IIS list as fallback
-                Applications = await _db.Applications.OrderBy(a => a.Name).ToListAsync();
-                
-                // FOR TESTING: Always load IIS apps to see them in action
+                // Only load IIS-managed applications here. Non-IIS apps are managed in IIS Manager.
+                Applications = await _db.Applications
+                    .Where(a => a.IsIISApplication)
+                    .OrderBy(a => a.Name)
+                    .ToListAsync();
+
+                // Also include any IIS app pools discovered directly from IIS that aren't yet persisted
                 var iisApps = await GetIISApplicationsAsync();
                 Applications.AddRange(iisApps.Where(iis => !Applications.Any(db => db.IISAppPoolName == iis.IISAppPoolName)));
-                
-                if (Applications == null || Applications.Count == 0)
-                {
-                    Applications = await GetIISApplicationsAsync();
-                }
 
-                await LoadCpuDataAsync();
+                // CPU data collection removed — IIS app controls remain (start/stop/recycle)
 
                 // Load users for owner selection
                 Users = await _userManager.Users.Where(u => u.IsActive).OrderBy(u => u.Vorname).ToListAsync();
@@ -72,6 +67,27 @@ namespace AppManager.Pages.Admin
                         .Select(o => o.ApplicationId)
                         .ToListAsync();
                     OwnedApplicationIds = new HashSet<Guid>(owned);
+
+                    // Load owners for all loaded applications (async, batched)
+                    var appIds = Applications.Select(a => a.Id).ToList();
+                    if (appIds.Count > 0)
+                    {
+                        var ownerEntries = await _db.AppOwnerships
+                            .Where(o => appIds.Contains(o.ApplicationId))
+                            .ToListAsync();
+
+                        var userIds = ownerEntries.Select(o => o.UserId).Distinct().ToList();
+                        var users = await _userManager.Users
+                            .Where(u => userIds.Contains(u.Id))
+                            .Select(u => new { u.Id, u.Vorname, u.Nachname, u.UserName })
+                            .ToListAsync();
+
+                        var userDisplay = users.ToDictionary(u => u.Id, u => (u.Vorname + " " + u.Nachname).Trim() + (string.IsNullOrEmpty(u.UserName) ? "" : " (" + u.UserName + ")"));
+
+                        ApplicationOwners = ownerEntries
+                            .GroupBy(o => o.ApplicationId)
+                            .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(o => userDisplay.TryGetValue(o.UserId, out var d) ? d : o.WindowsUsername)));
+                    }
                 }
             }
             catch (Exception ex)
@@ -82,6 +98,9 @@ namespace AppManager.Pages.Admin
         }
 
     public List<AppManager.Data.AppUser> Users { get; set; } = new();
+    
+    // Mapping of ApplicationId -> comma-separated owner display names
+    public Dictionary<Guid, string> ApplicationOwners { get; set; } = new();
 
     // Current user info for UI and quick checks
     public string CurrentUserId { get; set; } = string.Empty;
@@ -118,6 +137,8 @@ namespace AppManager.Pages.Admin
                 {
                     TempData["ErrorMessage"] = "IIS AppPool-Name enthält ungültige Zeichen.";
                     return RedirectToPage();
+                    
+                    
                 }
 
                 // Basic path validation
@@ -172,7 +193,7 @@ namespace AppManager.Pages.Admin
                 ApplicationId = OwnerApplicationId,
                 UserId = OwnerUserId,
                 WindowsUsername = user.UserName ?? string.Empty,
-                IISAppPoolName = _db.Applications.Where(a => a.Id == OwnerApplicationId).Select(a => a.IISAppPoolName).FirstOrDefault() ?? string.Empty,
+                IISAppPoolName = (await _db.Applications.Where(a => a.Id == OwnerApplicationId).Select(a => a.IISAppPoolName).FirstOrDefaultAsync()) ?? string.Empty,
                 CreatedAt = DateTime.Now,
                 CreatedBy = User?.Identity?.Name ?? "system"
             };
@@ -206,7 +227,15 @@ namespace AppManager.Pages.Admin
 
                 // Load the application from the DB to ensure we have a fresh instance
                 var app = await _db.Applications.FirstOrDefaultAsync(a => a.Id == applicationId);
-                if (app != null && app.IsIISApplication)
+                if (app == null)
+                {
+                    TempData["ErrorMessage"] = "Anwendung nicht gefunden.";
+                    return RedirectToPage();
+                }
+
+                _logger.LogInformation("OnPostStart invoked for app {AppId} (IIS={IsIIS}) by user {User}", app.Id, app.IsIISApplication, currentUser.UserName);
+
+                if (app.IsIISApplication)
                 {
                     if (string.IsNullOrWhiteSpace(app.IISAppPoolName))
                     {
@@ -228,7 +257,22 @@ namespace AppManager.Pages.Admin
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
+                    // Non-IIS: delegate to ProgramManagerService to start and record state
+                    if (string.IsNullOrWhiteSpace(app.ExecutablePath))
+                    {
+                        TempData["ErrorMessage"] = "ExecutablePath fehlt für diese Anwendung.";
+                        return RedirectToPage();
+                    }
+
+                    var started = await _programManager.StartProgramAsync(app);
+                    if (!started)
+                    {
+                        TempData["ErrorMessage"] = "Fehler beim Starten der Anwendung. Details im Log.";
+                    }
+                    else
+                    {
+                        TempData["SuccessMessage"] = "Anwendung gestartet.";
+                    }
                 }
                 return RedirectToPage();
             }
@@ -260,7 +304,15 @@ namespace AppManager.Pages.Admin
                 }
 
                 var app = await _db.Applications.FirstOrDefaultAsync(a => a.Id == applicationId);
-                if (app != null && app.IsIISApplication)
+                if (app == null)
+                {
+                    TempData["ErrorMessage"] = "Anwendung nicht gefunden.";
+                    return RedirectToPage();
+                }
+
+                _logger.LogInformation("OnPostStop invoked for app {AppId} (IIS={IsIIS}) by user {User}", app.Id, app.IsIISApplication, currentUser.UserName);
+
+                if (app.IsIISApplication)
                 {
                     if (string.IsNullOrWhiteSpace(app.IISAppPoolName))
                     {
@@ -282,7 +334,21 @@ namespace AppManager.Pages.Admin
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
+                    if (string.IsNullOrWhiteSpace(app.ExecutablePath))
+                    {
+                        TempData["ErrorMessage"] = "ExecutablePath fehlt für diese Anwendung.";
+                        return RedirectToPage();
+                    }
+
+                    var stopped = await _programManager.StopProgramAsync(app);
+                    if (!stopped)
+                    {
+                        TempData["ErrorMessage"] = "Fehler beim Stoppen der Anwendung. Details im Log.";
+                    }
+                    else
+                    {
+                        TempData["SuccessMessage"] = "Anwendung gestoppt.";
+                    }
                 }
                 return RedirectToPage();
             }
@@ -303,15 +369,23 @@ namespace AppManager.Pages.Admin
                 return RedirectToPage();
             }
 
-            bool allowed = currentUser.IsGlobalAdmin || _db.AppOwnerships.Any(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
+            bool allowed = currentUser.IsGlobalAdmin || await _db.AppOwnerships.AnyAsync(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
             if (!allowed)
             {
                 TempData["ErrorMessage"] = "Nur der App-Owner oder ein Administrator darf diese Aktion ausführen.";
                 return RedirectToPage();
             }
 
-            var app = _db.Applications.FirstOrDefault(a => a.Id == applicationId);
-            if (app != null && app.IsIISApplication)
+            var app = await _db.Applications.FirstOrDefaultAsync(a => a.Id == applicationId);
+            if (app == null)
+            {
+                TempData["ErrorMessage"] = "Anwendung nicht gefunden.";
+                return RedirectToPage();
+            }
+
+            _logger.LogInformation("OnPostRestart invoked for app {AppId} (IIS={IsIIS}) by user {User}", app.Id, app.IsIISApplication, currentUser.UserName);
+
+            if (app.IsIISApplication)
             {
                 try
                 {
@@ -346,7 +420,21 @@ namespace AppManager.Pages.Admin
             }
             else
             {
-                TempData["ErrorMessage"] = "Anwendung nicht gefunden oder ist keine IIS-Anwendung.";
+                if (string.IsNullOrWhiteSpace(app.ExecutablePath))
+                {
+                    TempData["ErrorMessage"] = "ExecutablePath fehlt für diese Anwendung.";
+                    return RedirectToPage();
+                }
+
+                var restarted = await _programManager.RestartProgramAsync(app);
+                if (!restarted)
+                {
+                    TempData["ErrorMessage"] = "Fehler beim Neustarten der Anwendung. Details im Log.";
+                }
+                else
+                {
+                    TempData["SuccessMessage"] = "Anwendung neugestartet.";
+                }
             }
             return RedirectToPage();
         }
@@ -360,14 +448,14 @@ namespace AppManager.Pages.Admin
                 return RedirectToPage();
             }
 
-            bool allowed = currentUser.IsGlobalAdmin || _db.AppOwnerships.Any(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
+            bool allowed = currentUser.IsGlobalAdmin || await _db.AppOwnerships.AnyAsync(o => o.ApplicationId == applicationId && o.UserId == currentUser.Id);
             if (!allowed)
             {
                 TempData["ErrorMessage"] = "Nur der App-Owner oder ein Administrator darf diese Aktion ausführen.";
                 return RedirectToPage();
             }
 
-            var app = _db.Applications.FirstOrDefault(a => a.Id == applicationId);
+            var app = await _db.Applications.FirstOrDefaultAsync(a => a.Id == applicationId);
             if (app != null && app.IsIISApplication)
             {
                 try
@@ -443,43 +531,6 @@ namespace AppManager.Pages.Admin
             return Task.FromResult(result);
         }
 
-        private Task LoadCpuDataAsync()
-        {
-            CpuLoads.Clear();
-            AppPoolNames.Clear();
-            try
-            {
-                if (!_appService.TryListIisAppPools(out var pools, out var err))
-                {
-                    _logger.LogWarning("TryListIisAppPools failed: {Error}", err);
-                    if (string.IsNullOrEmpty(IisErrorMessage)) // Nur setzen, wenn noch kein Fehler vorliegt
-                    {
-                        IisErrorMessage = string.IsNullOrWhiteSpace(err) ? "Fehler beim Laden der CPU-Daten." : err;
-                    }
-                    IisAvailable = false;
-                    return Task.CompletedTask;
-                }
-
-                IisAvailable = true;
-                foreach (var p in pools)
-                {
-                    AppPoolNames.Add(p.Name);
-                    float cpu = GetCpuUsageForAppPool(p.Name);
-                    CpuLoads.Add(cpu);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Fehler beim Laden der CPU-Daten für IIS-AppPools");
-                if (string.IsNullOrEmpty(IisErrorMessage)) // Nur setzen, wenn noch kein Fehler vorliegt
-                {
-                    IisErrorMessage = "Fehler beim Laden der CPU-Daten. Details im Log.";
-                }
-                IisAvailable = false;
-            }
-            return Task.CompletedTask;
-        }
-
         // Helper used by the Razor view to show/hide action buttons
         public bool CanManage(Guid applicationId)
         {
@@ -550,36 +601,8 @@ namespace AppManager.Pages.Admin
 
         private float GetCpuUsageForAppPool(string appPoolName)
         {
-            // Only try on Windows platform
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                return 0;
-            }
-
-            try
-            {
-                // Note: PerformanceCounter with AppPool name directly often fails
-                // Better approach would be to map AppPool -> WorkerProcess PID -> Process counter
-                // For now, we'll try a basic approach and gracefully handle failures
-                using var cpuCounter = new PerformanceCounter("Process", "% Processor Time", appPoolName, true);
-                return cpuCounter.NextValue();
-            }
-            catch (System.ComponentModel.Win32Exception)
-            {
-                // Counter not found, which is common for AppPool names
-                _logger.LogDebug("PerformanceCounter für {Pool} nicht verfügbar (Instance not found)", appPoolName);
-                return 0;
-            }
-            catch (System.Runtime.InteropServices.COMException comEx)
-            {
-                _logger.LogDebug(comEx, "PerformanceCounter für {Pool} nicht verfügbar", appPoolName);
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Fehler beim Auslesen der CPU-Last für {Pool}", appPoolName);
-                return 0;
-            }
+            // CPU collection removed; method retained for compatibility but returns 0
+            return 0;
         }
 
         // Input validation helpers

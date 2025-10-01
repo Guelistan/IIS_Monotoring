@@ -6,7 +6,7 @@
 }
 
 <!-- Überschrift mit IIS-Status-Indikator -->
-<h1>Anwendungsverwaltung
+<h1>AppManger
     <!-- Zeigt den IIS-Status als Badge an -->
     @if (Model.IisAvailable)
     {
@@ -37,13 +37,13 @@
 <!-- Erfolgsmeldung anzeigen, falls vorhanden -->
 @if (TempData["SuccessMessage"] != null)
 {
-<div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
 }
 
 <!-- Fehlermeldung anzeigen, falls vorhanden -->
 @if (TempData["ErrorMessage"] != null)
 {
-<div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
 }
 
 <!-- Detaillierte Erfolgsmeldung mit Icon und Schließen-Button -->
@@ -69,6 +69,7 @@
             <hr class="my-2">
             <small class="d-block">
                 <strong>💡 Mögliche Ursachen:</strong><br>
+                <!-- Mögliche Fehlerursachen für Objektkennung -->
                 • Der AppPool existiert nicht mehr im IIS<br>
                 • IIS-Dienste (W3SVC/WAS) sind gestoppt<br>
                 • Keine Administratorrechte für IIS-Operationen
@@ -80,6 +81,7 @@
             <hr class="my-2">
             <small class="d-block">
                 <strong>🔧 Lösungsvorschlag:</strong><br>
+                <!-- Lösungsvorschlag für Dienst nicht gestartet -->
                 IIS-Dienste neu starten: <code>iisreset</code> als Administrator ausführen
             </small>
         }
@@ -104,6 +106,7 @@
                 <div class="small">
                     <strong>💡 Lösungsvorschläge:</strong>
                     <ul class="mb-0 mt-1">
+                        <!-- Vorschläge bei Berechtigungsproblemen -->
                         <li>Starten Sie Visual Studio oder die Anwendung als Administrator</li>
                         <li>Prüfen Sie, ob IIS korrekt installiert ist</li>
                         <li>Kontaktieren Sie Ihren Systemadministrator für erweiterte Berechtigungen</li>
@@ -115,6 +118,7 @@
                 <div class="small">
                     <strong>💡 Lösungsvorschläge:</strong>
                     <ul class="mb-0 mt-1">
+                        <!-- Vorschläge bei Konfigurationsproblemen -->
                         <li>IIS-Konfiguration überprüfen: <code>inetmgr</code> als Administrator ausführen</li>
                         <li>IIS-Rolle in Windows Features prüfen</li>
                         <li>Anwendung mit erhöhten Rechten starten</li>
@@ -129,35 +133,8 @@
     </div>
 }
 
-<!-- Formular zum Hinzufügen einer neuen Anwendung -->
-<form method="post" asp-page-handler="Add">
-    <div class="form-row">
-        <!-- Name der Anwendung -->
-        <div class="form-group col-md-4">
-            <label asp-for="NewApplication.Name">Name</label>
-            <input asp-for="NewApplication.Name" class="form-control" />
-            <span asp-validation-for="NewApplication.Name" class="text-danger"></span>
-        </div>
-        <!-- IIS AppPool Name -->
-        <div class="form-group col-md-4">
-            <label asp-for="NewApplication.IISAppPoolName">IIS AppPool Name</label>
-            <input asp-for="NewApplication.IISAppPoolName" class="form-control" />
-        </div>
-        <!-- Checkbox für IIS-Anwendung -->
-        <div class="form-group col-md-2">
-            <label asp-for="NewApplication.IsIISApplication">IIS?</label>
-            <input asp-for="NewApplication.IsIISApplication" type="checkbox" class="form-control" />
-        </div>
-        <!-- Hinzufügen-Button -->
-        <div class="form-group col-md-2 align-self-end">
-            <button type="submit" class="btn btn-primary">Hinzufügen</button>
-        </div>
-    </div>
-    <!-- Verstecktes Feld für den Pfad -->
-    <input type="hidden" asp-for="NewApplication.ExecutablePath" />
-</form>
-
-<hr />
+<!-- Hinweis: Nur IIS-Anwendungen werden hier angezeigt und verwaltet. Windows-Apps verwalten Sie bitte im IIS Manager. -->
+<div class="alert alert-info"> <a asp-page="/IISManager">IIS Manager</a>.</div>
 
 <!-- Tabelle mit allen Anwendungen -->
 <table class="table table-bordered table-striped">
@@ -167,6 +144,7 @@
             <th>Status</th>
             <th>Letzter Start</th>
             <th>Aktionen</th>
+            <th>Owner</th>
         </tr>
     </thead>
     <tbody>
@@ -178,6 +156,7 @@
                 @app.Name
                 @if (Model.CanManage(app.Id))
                 {
+                    <!-- Badge für Owner -->
                     <span class="badge bg-success ml-2">Du bist Owner</span>
                 }
                 <br />
@@ -187,67 +166,42 @@
             <td style="width:10%">
                 @if (app.IsStarted)
                 {
+                    <!-- Status: gestartet -->
                     <span class="text-success">Gestartet</span>
                 }
                 else
                 {
+                    <!-- Status: gestoppt -->
                     <span class="text-danger">Gestoppt</span>
                 }
             </td>
             <!-- Zeitpunkt des letzten Starts -->
             <td style="width:15%">@app.LastLaunchTime.ToString("g")</td>
-            <!-- Steuerungsaktionen (Start/Stop/Restart) oder IIS Manager -->
+            <!-- Steuerungsaktionen: nur Link zum IIS Manager (Start/Stop/Recycle dort) -->
             <td style="width:20%">
-                @if (Model.CanManage(app.Id))
+                @if (app.IsIISApplication)
                 {
-                    @if (app.IsIISApplication)
-                    {
-                        <!-- IIS-Anwendungen: Link zum IIS Manager -->
-                        <div class="btn-group btn-group-sm" role="group">
-                            <span class="badge bg-info me-2">IIS App</span>
-                            <a asp-page="/IISManager" class="btn btn-primary btn-sm" title="Im IIS Manager verwalten">
-                                🚀 IIS Manager
-                            </a>
-                        </div>
-                    }
-                    else
-                    {
-                        <!-- Lokale Steuerung für normale Anwendungen -->
-                        <form method="post" asp-page-handler="Start" style="display:inline">
-                            <input type="hidden" name="applicationId" value="@app.Id" />
-                            <button type="submit" class="btn btn-success btn-sm" title="Starten">▶️</button>
-                        </form>
-                        <form method="post" asp-page-handler="Stop" style="display:inline">
-                            <input type="hidden" name="applicationId" value="@app.Id" />
-                            <button type="submit" class="btn btn-warning btn-sm" title="Stoppen">⏹️</button>
-                        </form>
-                        <form method="post" asp-page-handler="Restart" style="display:inline">
-                            <input type="hidden" name="applicationId" value="@app.Id" />
-                            <button type="submit" class="btn btn-secondary btn-sm" title="Reboot">🔁</button>
-                        </form>
-                    }
+                    <!-- Aktionen für IIS-Anwendungen -->
+                    <div class="btn-group btn-group-sm" role="group">
+                        <span class="badge bg-info me-2">IIS App</span>
+                        <a asp-page="/IISManager" class="btn btn-primary btn-sm" title="Im IIS Manager verwalten">
+                            🚀 IIS Manager
+                        </a>
+                    </div>
                 }
                 else
                 {
-                    <!-- Aktionen deaktiviert, falls keine Berechtigung -->
-                    @if (app.IsIISApplication)
-                    {
-                        <span class="badge bg-secondary">Keine IIS-Berechtigung</span>
-                    }
-                    else
-                    {
-                        <button class="btn btn-success btn-sm" disabled title="Starten">▶️</button>
-                        <button class="btn btn-warning btn-sm" disabled title="Stoppen">⏹️</button>
-                        <button class="btn btn-secondary btn-sm" disabled title="Reboot">🔁</button>
-                    }
+                    <!-- Nicht verwaltbare Anwendung -->
+                    <span class="text-muted">Nicht verwaltbar</span>
                 }
             </td>
 
-            <!-- Owner-Zuweisung und CPU-Chart -->
+            <!-- Owner-Zuweisung -->
             <td style="width:20%">
                 <!-- Owner-Zuweisung nur für globale Admins -->
                 @if (Model.CurrentUserIsGlobalAdmin)
                 {
+                    <!-- Formular zur Owner-Zuweisung -->
                     <form method="post" asp-page-handler="AddOwner" class="form-inline">
                         <input type="hidden" name="OwnerApplicationId" value="@app.Id" />
                         <select name="OwnerUserId" class="form-control form-control-sm mr-1">
@@ -260,40 +214,19 @@
                         <button type="submit" class="btn btn-outline-primary btn-sm">Assign</button>
                     </form>
                 }
-
-                <!-- CPU-Auslastung als Chart anzeigen -->
                 <div class="mt-2">
-                    <canvas id="cpuChart-@app.Id" data-appid="@app.Id" width="120" height="80"></canvas>
+                    <!-- Owner: zeigt zugewiesene Owner(s) über ApplicationOwners-Mapping -->
+                    @{
+                        Model.ApplicationOwners.TryGetValue(app.Id, out var ownerStr);
+                    }
+                    @if (!string.IsNullOrEmpty(ownerStr))
+                    {
+                        <small class="text-muted">@ownerStr</small>
+                    }
                 </div>
             </td>
         </tr>
         }
     </tbody>
 </table>
-
-<!-- Chart.js für CPU-Auslastung einbinden -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    // Zeichnet für jede Anwendung einen CPU-Chart
-    (function(){
-        try{
-            var loads = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CpuLoads));
-            var names = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AppPoolNames));
-            // Für jedes Canvas-Element den passenden Wert anzeigen
-            document.querySelectorAll('canvas[id^="cpuChart-"]').forEach(function(canvas){
-                var appId = canvas.dataset.appid;
-                // Platzhalterwert, falls keine Daten vorhanden
-                var ctx = canvas.getContext('2d');
-                var val = 0;
-                // Zuordnung per Index (vereinfachte Logik)
-                var idx = 0;
-                if (loads && loads.length>0){ idx = 0; val = loads[idx]; }
-                new Chart(ctx, {
-                    type: 'doughnut',
-                    data: { datasets: [{ data: [val, 100-val], backgroundColor: ['#4caf50','#e0e0e0'] }], labels: ['CPU','Rest']},
-                    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } }, elements: { center: { } } }
-                });
-            });
-        } catch(e){ console.debug(e); }
-    })();
-</script>
+<!-- CPU charts entfernt -->

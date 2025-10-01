@@ -36,7 +36,11 @@ namespace AppManager.Pages.Admin
         {
             Console.WriteLine("🔍 Dashboard OnGetAsync wird ausgeführt...");
 
-            Applications = await _context.Applications.ToListAsync();
+            // Only show IIS-managed applications on the admin dashboard
+            Applications = await _context.Applications
+                .Where(a => a.IsIISApplication)
+                .OrderBy(a => a.Name)
+                .ToListAsync();
             Console.WriteLine($"📱 {Applications.Count} Anwendungen geladen");
 
             LaunchHistory = await _context.AppLaunchHistories
@@ -55,6 +59,10 @@ namespace AppManager.Pages.Admin
                 app.RestartRequired = RestartRequiredMap[app.Id];
             }
         }
+
+        // NOTE: The previous handler that removed Windows apps has been intentionally removed
+        // to ensure applications are not deleted from the database. Management of non-IIS
+        // applications remains available via the ApplicationManagement page and IISManager.
 
         /// <summary>
         ///Intelligente Logik: Bestimmt ob ein Neustart erforderlich ist
