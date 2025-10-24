@@ -1,0 +1,98 @@
+@startuml
+' ' =============================================================
+' ' Klassendiagramm für Bildaufnahme und Bearbeitung
+' ' -------------------------------------------------------------
+' ' Dieses Diagramm zeigt die Architektur und die Beziehungen der zentralen Komponenten:
+' ' - Camera: Verantwortlich für die Bildaufnahme von der Kameraquelle
+' ' - Cropper: Zuständig für das Zuschneiden von Bildern (Region of Interest)
+' ' - CentralCanvas: Zentrale Anzeige und Interaktionsfläche für Bilder
+' ' - IImageBuffer, IImageSource, IImageSink: Schnittstellen für Bilddaten und I/O
+' ' Die Komponenten sind klar getrennt und kommunizieren über definierte Schnittstellen.
+' ' Dadurch wird die Wartbarkeit und Erweiterbarkeit der Anwendung sichergestellt.
+' ' =============================================================
+' --- Interfaces ---
+interface ICamera {
+  +Start() : void
+  +Stop() : void
+  +Capture() : IImageBuffer
+  +OnFrameCaptured(img : IImageBuffer) : void
+}
+
+interface ICropper {
+  +Crop(img : IImageBuffer, roi : Rect) : IImageBuffer
+  +SetROI(roi : Rect) : void
+}
+
+interface ICanvas {
+  +Render(img : IImageBuffer) : void
+  +Clear() : void
+  +OnClick(pt : PointF) : void
+  +OnCropRequested(roi : Rect) : void
+}
+
+interface IImageBuffer {
+  +Width : int
+  +Height : int
+  +Format : PixelFormat
+  +GetRow(y : int) : byte[]
+}
+
+interface IImageSource {
+  +Read(path : string) : IImageBuffer
+}
+
+interface IImageSink {
+  +Write(img : IImageBuffer, path : string) : void
+}
+
+' --- Core-Klassen ---
+class Camera {
+  +IsRunning : bool
+  +Start() : void
+  +Stop() : void
+  +Capture() : IImageBuffer
+  +FrameReady(img : IImageBuffer) : void
+}
+Camera ..|> ICamera
+Camera --> IImageBuffer : liefert Bilddaten nach Capture()  ' Camera erzeugt Bilddaten
+Camera --> CentralCanvas : sendet Frame an Canvas  ' Camera informiert Canvas über neue Bilder
+
+class Cropper {
+  +ROI : Rect
+  +Crop(img : IImageBuffer, roi : Rect) : IImageBuffer
+  +SetROI(roi : Rect) : void
+}
+Cropper ..|> ICropper
+Cropper --> IImageBuffer : arbeitet auf Bilddaten  ' Cropper verarbeitet Bilddaten
+Cropper --> CentralCanvas : sendet Cropped an Canvas  ' Cropper liefert Ergebnis an Canvas
+
+class CentralCanvas {
+  +CurrentImage : IImageBuffer
+  +Render(img : IImageBuffer) : void
+  +Clear() : void
+  +OnClick(pt : PointF) : void
+  +OnCropRequested(roi : Rect) : void
+}
+CentralCanvas ..|> ICanvas
+CentralCanvas --> IImageBuffer : zeigt Bilddaten an  ' Canvas visualisiert Bild
+CentralCanvas --> Cropper : ruft Cropper zum Zuschneiden auf  ' Canvas delegiert Cropping
+CentralCanvas --> Camera : empfängt neue Frames von Camera  ' Canvas erhält Bilddaten
+
+' --- Hilfsklassen ---
+class Rect {
+  +X : int
+  +Y : int
+  +Width : int
+  +Height : int
+}
+class PointF {
+  +X : float
+  +Y : float
+}
+class PixelFormat
+
+' --- I/O ---
+CentralCanvas ..> IImageSink : speichert Bilddaten  ' Canvas kann Bilder speichern
+CentralCanvas ..> IImageSource : lädt Bilddaten  ' Canvas kann Bilder laden
+
+@enduml

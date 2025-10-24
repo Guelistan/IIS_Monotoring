@@ -15,8 +15,10 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
-// using Microsoft.AspNetCore.Authentication.Negotiate; // entfernt
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Server.IISIntegration;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,6 +73,10 @@ builder.Services.AddHttpLogging(logging =>
 builder.Services.AddScoped<ProgramManagerService>();
 builder.Services.AddScoped<IISService>();
 builder.Services.AddScoped<AppService>();
+builder.Services.AddScoped<AppManager.AppAuthorizationService>();
+builder.Services.AddScoped<CpuMonitoringService>();
+builder.Services.AddScoped<WindowsUserClaimsTransformation>();
+builder.Services.AddScoped<IClaimsTransformation, WindowsUserClaimsTransformation>();
 
 // 🌐 URLs für Non-Development-Umgebung (bei IIS egal, wird ignoriert)
 if (!builder.Environment.IsDevelopment())
@@ -81,19 +87,57 @@ if (!builder.Environment.IsDevelopment())
 // ⚙️ HTTPS-Redirect
 var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
 
-// WICHTIG: IIS als Authentifizierungsschema setzen (keine Negotiate-Middleware!)
-builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme);
+// 🔐 Authentication: Windows (Produktion) oder Identity (Entwicklung)
+if (!builder.Environment.IsDevelopment())
+{
+    // Production: Windows Authentication für IIS zusätzlich zu Identity
+    builder.Services.AddAuthentication()
+        .AddNegotiate();
+    
+    // Windows Auth als primäres Schema in Production
+    builder.Services.Configure<AuthenticationOptions>(options =>
+    {
+        options.DefaultAuthenticateScheme = NegotiateDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = NegotiateDefaults.AuthenticationScheme;
+    });
+}
 
+// 🔐 Authorization Policies
 builder.Services.AddAuthorization(options =>
 {
-    // Beispiel: Admin-Ordner nur authentifizierten Benutzern erlauben
-    // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+    // Admin-Policy: Nur SuperAdmin und Admin
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireRole("Admin", "SuperAdmin"));
+    
+    // AppOwner-Policy: Admin, SuperAdmin oder AppOwner
+    options.AddPolicy("AppOwnerOrAdmin", policy =>
+        policy.RequireRole("Admin", "SuperAdmin", "AppOwner"));
+    
+    // User-Policy: Alle authentifizierten Benutzer (nur in Produktion)
+    options.AddPolicy("AuthenticatedUser", policy =>
+        policy.RequireAuthenticatedUser());
+    
+    // Standard: In Development keine Auth-Zwang, in Production schon
+    if (!builder.Environment.IsDevelopment())
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+    }
 });
 
-// Razor Pages: /Admin schützen
+// Razor Pages: Erweiterte Autorisierung
 builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
 {
-    opts.Conventions.AuthorizeFolder("/Admin");
+    // Admin-Bereich nur für Admins
+    opts.Conventions.AuthorizeFolder("/Admin", "AdminOnly");
+    
+    // In Production: Authentifizierung erforderlich
+    if (!builder.Environment.IsDevelopment())
+    {
+        opts.Conventions.AuthorizePage("/Index", "AuthenticatedUser");
+        opts.Conventions.AuthorizePage("/Privacy", "AuthenticatedUser");
+    }
 });
 
 var app = builder.Build();
@@ -244,8 +288,11 @@ using (var scope = app.Services.CreateScope())
 app.UseStaticFiles();
 app.UseRouting();
 app.UseHttpLogging();
-// app.UseAuthentication(); // für reine Windows-Auth nicht nötig
+
+// 🔐 Authentication & Authorization Pipeline
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapRazorPages();
 app.MapControllers();
 
