@@ -56,6 +56,7 @@ param(
   [string]$AppPoolIdentity = 'LocalSystem',
   [pscredential]$CustomCredential,
   [switch]$EnableWindowsAuth,
+  [switch]$WindowsOnly,
   [switch]$CreateFirewallRule = $true
 )
 
@@ -164,14 +165,16 @@ function New-OrReplace-Website {
 function Set-Auth {
   param(
     [string]$Site,
-    [bool]$WinAuth
+    [bool]$WinAuth,
+    [bool]$AnonEnabled
   )
   Import-Module WebAdministration -ErrorAction Stop
   # Anonymous ON
-  Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -Name enabled -Value $true -PSPath 'IIS:\' -Location $Site
+  Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -Name enabled -Value $AnonEnabled -PSPath 'IIS:\' -Location $Site
   # Windows optional
     Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/windowsAuthentication' -Name enabled -Value ($WinAuth) -PSPath 'IIS:\' -Location $Site
-  Write-Host ("   ✅ Authentication: Anonymous=ON, Windows={0}" -f ($WinAuth ? 'ON' : 'OFF')) -ForegroundColor Green
+  $anonText = $AnonEnabled ? 'ON' : 'OFF'
+  Write-Host ("   ✅ Authentication: Anonymous={0}, Windows={1}" -f $anonText, ($WinAuth ? 'ON' : 'OFF')) -ForegroundColor Green
 }
 
 function Grant-NTFSPermissions {
@@ -231,7 +234,9 @@ try {
 
   New-OrReplace-AppPool -Name $AppPoolName -Identity $AppPoolIdentity -Cred $CustomCredential
   New-OrReplace-Website -Name $SiteName -Path $PublishPath -Pool $AppPoolName -Port $Port
-  Set-Auth -Site $SiteName -WinAuth ([bool]$EnableWindowsAuth)
+  $anonEnabled = $true
+  if ($WindowsOnly) { $anonEnabled = $false }
+  Set-Auth -Site $SiteName -WinAuth ([bool]$EnableWindowsAuth) -AnonEnabled $anonEnabled
   Grant-NTFSPermissions -Path $PublishPath -PoolName $AppPoolName
 
   if ($CreateFirewallRule) { Add-FirewallRuleIfNeeded -Port $Port }
