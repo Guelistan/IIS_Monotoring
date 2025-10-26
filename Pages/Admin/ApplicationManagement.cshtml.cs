@@ -19,16 +19,27 @@ namespace AppManager.Pages.Admin
         private readonly ILogger<ApplicationManagementModel> _logger;
         private readonly AppManager.Data.AppDbContext _db;
         private readonly UserManager<AppManager.Data.AppUser> _userManager;
-    private readonly AppService _appService;
-    private readonly ProgramManagerService _programManager;
+        private readonly AppService _appService;
+        private readonly ProgramManagerService _programManager;
+        private readonly IISService _iisService;
+        private readonly CpuMonitoringService _cpuService;
 
-        public ApplicationManagementModel(ILogger<ApplicationManagementModel> logger, AppManager.Data.AppDbContext db, UserManager<AppManager.Data.AppUser> userManager, AppService appService, ProgramManagerService programManager)
+        public ApplicationManagementModel(
+            ILogger<ApplicationManagementModel> logger,
+            AppManager.Data.AppDbContext db,
+            UserManager<AppManager.Data.AppUser> userManager,
+            AppService appService,
+            ProgramManagerService programManager,
+            IISService iisService,
+            CpuMonitoringService cpuService)
         {
             _logger = logger;
             _db = db;
             _userManager = userManager;
             _appService = appService;
             _programManager = programManager;
+            _iisService = iisService;
+            _cpuService = cpuService;
         }
 
         public List<AppManager.Models.Application> Applications { get; set; } = new();
@@ -54,7 +65,36 @@ namespace AppManager.Pages.Admin
                 var iisApps = await GetIISApplicationsAsync();
                 Applications.AddRange(iisApps.Where(iis => !Applications.Any(db => db.IISAppPoolName == iis.IISAppPoolName)));
 
-                // CPU data collection removed — IIS app controls remain (start/stop/recycle)
+                // CPU data collection for IIS AppPools
+                var distinctPools = Applications
+                    .Where(a => a.IsIISApplication && !string.IsNullOrWhiteSpace(a.IISAppPoolName))
+                    .Select(a => a.IISAppPoolName!)
+                    .Distinct()
+                    .ToList();
+
+                AppPoolNames = distinctPools.ToList();
+                CpuLoads = new List<double>();
+
+                foreach (var pool in distinctPools)
+                {
+                    try
+                    {
+                        var pids = _iisService.GetWorkerProcessIds(pool);
+                        double total = 0;
+                        foreach (var pid in pids)
+                        {
+                            total += _cpuService.GetProcessCpuUsage(pid);
+                        }
+                        // Clamp between 0 and 100
+                        total = Math.Max(0, Math.Min(100, total));
+                        CpuLoads.Add(Math.Round(total, 2));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "CPU-Ermittlung für AppPool {Pool} fehlgeschlagen", pool);
+                        CpuLoads.Add(0);
+                    }
+                }
 
                 // Load users for owner selection
                 Users = await _userManager.Users.Where(u => u.IsActive).OrderBy(u => u.Vorname).ToListAsync();

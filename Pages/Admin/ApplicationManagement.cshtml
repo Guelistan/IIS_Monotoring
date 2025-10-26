@@ -273,7 +273,7 @@
 
                 <!-- CPU chart (right side) -->
                 <div class="mt-2">
-                    <canvas id="cpuChart-@app.Id" data-appid="@app.Id" width="120" height="80"></canvas>
+                    <canvas id="cpuChart-@app.Id" data-appid="@app.Id" data-apppool="@app.IISAppPoolName" width="120" height="80"></canvas>
                 </div>
             </td>
         </tr>
@@ -283,25 +283,25 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Simple rendering: if CPU loads available in Model.CpuLoads, map by index
+    // Render CPU loads per AppPool: match canvas data-apppool to Model.AppPoolNames
     (function(){
         try{
             var loads = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CpuLoads));
             var names = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AppPoolNames));
-            // For each canvas, attempt to find matching app pool name by index
             document.querySelectorAll('canvas[id^="cpuChart-"]').forEach(function(canvas){
-                var appId = canvas.dataset.appid;
-                // naive: draw a placeholder if no data
+                var appPool = canvas.dataset.apppool || '';
                 var ctx = canvas.getContext('2d');
                 var val = 0;
-                // attempt to find by name match (if app pool names map to application IISAppPoolName)
-                // fallback: use index-based mapping
-                var idx = 0;
-                if (loads && loads.length>0){ idx = 0; val = loads[idx]; }
+                if (appPool && Array.isArray(names)){
+                    var idx = names.indexOf(appPool);
+                    if (idx >= 0 && Array.isArray(loads) && loads.length > idx){
+                        val = Number(loads[idx]) || 0;
+                    }
+                }
                 new Chart(ctx, {
                     type: 'doughnut',
                     data: { datasets: [{ data: [val, 100-val], backgroundColor: ['#4caf50','#e0e0e0'] }], labels: ['CPU','Rest']},
-                    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } }, elements: { center: { } } }
+                    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false } } }
                 });
             });
         } catch(e){ console.debug(e); }
