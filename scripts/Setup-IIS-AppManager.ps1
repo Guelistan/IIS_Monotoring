@@ -77,6 +77,7 @@ function Ensure-IISFeatures {
     'IIS-HttpErrors',
     'IIS-HttpLogging',
     'IIS-RequestFiltering',
+    'IIS-WindowsAuthentication',
     'IIS-ManagementConsole'
   )
   foreach ($f in $features) {
