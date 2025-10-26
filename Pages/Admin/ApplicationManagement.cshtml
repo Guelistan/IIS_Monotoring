@@ -134,27 +134,50 @@
 }
 
 <!-- Neue Anwendung hinzufügen -->
-<form method="post" asp-page-handler="Add">
-    <div class="form-row">
-        <div class="form-group col-md-4">
-            <label asp-for="NewApplication.Name">Name</label>
-            <input asp-for="NewApplication.Name" class="form-control" />
-            <span asp-validation-for="NewApplication.Name" class="text-danger"></span>
-        </div>
-        <div class="form-group col-md-4">
-            <label asp-for="NewApplication.IISAppPoolName">IIS AppPool Name</label>
-            <input asp-for="NewApplication.IISAppPoolName" class="form-control" />
-        </div>
-        <div class="form-group col-md-2">
-            <label asp-for="NewApplication.IsIISApplication">IIS?</label>
-            <input asp-for="NewApplication.IsIISApplication" type="checkbox" class="form-control" />
-        </div>
-        <div class="form-group col-md-2 align-self-end">
-            <button type="submit" class="btn btn-primary">Hinzufügen</button>
-        </div>
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-plus-circle"></i> Neue Anwendung hinzufügen
+        </h5>
     </div>
-    <input type="hidden" asp-for="NewApplication.ExecutablePath" />
-</form>
+    <div class="card-body">
+        <form method="post" asp-page-handler="Add">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label asp-for="BindNewApplication.Name" class="form-label">Name der Anwendung *</label>
+                    <input asp-for="BindNewApplication.Name" class="form-control" placeholder="z.B. Production Website" required />
+                    <span asp-validation-for="BindNewApplication.Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-5">
+                    <label asp-for="BindNewApplication.IISAppPoolName" class="form-label">IIS AppPool Name *</label>
+                    <input asp-for="BindNewApplication.IISAppPoolName" class="form-control" placeholder="z.B. DefaultAppPool" required />
+                    <small class="form-text text-muted">Exakter Name wie in IIS angezeigt</small>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Typ</label>
+                    <div class="form-check form-switch">
+                        <input asp-for="BindNewApplication.IsIISApplication" class="form-check-input" type="checkbox" role="switch" id="isIISSwitch" checked />
+                        <label class="form-check-label" for="isIISSwitch">
+                            <strong>IIS AppPool</strong>
+                        </label>
+                    </div>
+                    <small class="form-text text-muted">Nur IIS-Apps werden unterstützt</small>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> Hinzufügen
+                    </button>
+                    <button type="reset" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> Zurücksetzen
+                    </button>
+                </div>
+            </div>
+            <input type="hidden" asp-for="BindNewApplication.ExecutablePath" value="" />
+        </form>
+    </div>
+</div>
 
 <hr />
 
