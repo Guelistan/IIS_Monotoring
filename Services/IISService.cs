@@ -364,8 +364,8 @@ namespace AppManager.Services
             }
         }
 
-        // ResolveCurrentAppUserAsync: Ermittelt den aktuellen AppUser basierend auf der Windows-Identität.
-        public async Task<AppUser> ResolveCurrentAppUserAsync()
+        // ResolveCurrentAppUserAsync: Ermittelt den aktuellen Benutzer basierend auf der Windows-Identität.
+        public async Task<IISAppUser> ResolveCurrentAppUserAsync()
         {
             return await Task.Run(() =>
             {
@@ -377,7 +377,7 @@ namespace AppManager.Services
                     // Beispiel: Mappe zu Admin-Rollen
                     var isAdmin = username.Contains("DOMAIN\\AdminUser"); // || User.IsInRole("Administrators"); // Windows-Gruppe prüfen
                     
-                    return new AppUser
+                    return new IISAppUser
                     {
                         Id = Guid.NewGuid(), // Oder aus DB laden
                         UserName = username,
@@ -413,7 +413,7 @@ namespace AppManager.Services
         public string AppPoolName { get; set; }
     }
 
-    public class AppUser
+    public class IISAppUser
     {
         public Guid Id { get; set; }
         public string UserName { get; set; } = string.Empty;

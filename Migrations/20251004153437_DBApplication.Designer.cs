@@ -11,13 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AppManager.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-<<<<<<<< HEAD:Migrations/20250921114250_DBErstellen.Designer.cs
-    [Migration("20250921114250_DBErstellen")]
-    partial class DBErstellen
-========
     [Migration("20251004153437_DBApplication")]
     partial class DBApplication
->>>>>>>> 1e808df:Migrations/20251004153437_DBApplication.Designer.cs
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

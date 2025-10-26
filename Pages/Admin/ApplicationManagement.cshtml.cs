@@ -34,6 +34,9 @@ namespace AppManager.Pages.Admin
         public List<AppManager.Models.Application> Applications { get; set; } = new();
         public AppManager.Models.Application NewApplication { get; set; } = new();
     // CPU load display for Windows apps was removed per request
+        // Keep placeholders for view bindings
+        public List<double> CpuLoads { get; set; } = new();
+        public List<string> AppPoolNames { get; set; } = new();
         public string IisErrorMessage { get; set; } = string.Empty;
         public bool IisAvailable { get; set; } = false;
         // Load page data and authorization info

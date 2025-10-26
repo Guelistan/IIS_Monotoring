@@ -6,11 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AppManager.Migrations
 {
     /// <inheritdoc />
-<<<<<<<< HEAD:Migrations/20250921114250_DBErstellen.cs
-    public partial class DBErstellen : Migration
-========
     public partial class DBApplication : Migration
->>>>>>>> 1e808df:Migrations/20251004153437_DBApplication.cs
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
