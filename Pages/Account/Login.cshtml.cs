@@ -25,19 +25,25 @@ namespace AppManager.Pages.Account
         public LoginInput Input { get; set; }
 
         public string Message { get; set; }
+        public string ReturnUrl { get; set; }
 
         public class LoginInput
         {
-            [Required]
+            [Required(ErrorMessage = "Bitte geben Sie Ihren Benutzernamen ein")]
             public string Username { get; set; }
 
-            [Required]
+            [Required(ErrorMessage = "Bitte geben Sie Ihr Passwort ein")]
             [DataType(DataType.Password)]
             public string Password { get; set; }
+            
+            public bool RememberMe { get; set; }
+            
+            public string ReturnUrl { get; set; }
         }
 
-        public void OnGet(string message = null)
+        public void OnGet(string returnUrl = null, string message = null)
         {
+            ReturnUrl = returnUrl ?? Url.Content("~/");
             if (!string.IsNullOrEmpty(message))
                 Message = message;
         }
@@ -45,6 +51,8 @@ namespace AppManager.Pages.Account
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid) return Page();
+            
+            ReturnUrl = Input.ReturnUrl ?? Url.Content("~/");
 
             Console.WriteLine($"🔍 Login-Versuch für: '{Input.Username}'");
 
@@ -62,7 +70,7 @@ namespace AppManager.Pages.Account
             if (user == null)
             {
                 Console.WriteLine($"❌ Benutzer '{Input.Username}' wurde nicht gefunden");
-                ModelState.AddModelError(string.Empty, "Ungültige Anmeldedaten. Benutzer wurde nicht gefunden.");
+                ModelState.AddModelError(string.Empty, "Ungültige Anmeldedaten.");
                 return Page();
             }
 
@@ -76,7 +84,7 @@ namespace AppManager.Pages.Account
             Console.WriteLine($"✅ Benutzer gefunden: {user.UserName} (Email: {user.Email})");
             Console.WriteLine($"   Versuche Passwort-Überprüfung...");
 
-            var result = await _signInManager.PasswordSignInAsync(user, Input.Password, false, false);
+            var result = await _signInManager.PasswordSignInAsync(user, Input.Password, Input.RememberMe, false);
 
             Console.WriteLine($"   SignIn Result: Succeeded={result.Succeeded}, RequiresTwoFactor={result.RequiresTwoFactor}, IsLockedOut={result.IsLockedOut}, IsNotAllowed={result.IsNotAllowed}");
 
@@ -90,23 +98,17 @@ namespace AppManager.Pages.Account
                 
                 if (isAdmin || isSuperAdmin)
                 {
-                    // Für Admins: Standardmäßig Admin-Modus aktivieren
-                    await _signInManager.SignOutAsync();
-                    var claims = new List<Claim>
-                    {
-                        new Claim("AdminMode", "true")
-                    };
-                    await _signInManager.SignInWithClaimsAsync(user, false, claims);
-                    Console.WriteLine($"🛡️ Admin-Modus aktiviert für: {user.UserName}");
+                    Console.WriteLine($"🛡️ Admin/SuperAdmin angemeldet: {user.UserName}");
+                    return LocalRedirect(ReturnUrl.Contains("/Admin") ? ReturnUrl : "/Admin/Dashboard");
                 }
                 
-                return RedirectToPage("/Admin/Dashboard");
+                return LocalRedirect(ReturnUrl);
             }
 
             if (result.IsNotAllowed)
             {
-                Console.WriteLine($"❌ Login nicht erlaubt für: {user.UserName} (EmailConfirmed: {user.EmailConfirmed})");
-                ModelState.AddModelError(string.Empty, "Anmeldung nicht erlaubt. Möglicherweise ist die E-Mail nicht bestätigt.");
+                Console.WriteLine($"❌ Login nicht erlaubt für: {user.UserName}");
+                ModelState.AddModelError(string.Empty, "Anmeldung nicht erlaubt.");
             }
             else if (result.IsLockedOut)
             {
@@ -116,7 +118,7 @@ namespace AppManager.Pages.Account
             else
             {
                 Console.WriteLine($"❌ Falsches Passwort für: {user.UserName}");
-                ModelState.AddModelError(string.Empty, "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Benutzername und Passwort.");
+                ModelState.AddModelError(string.Empty, "Ungültige Anmeldedaten.");
             }
 
             return Page();

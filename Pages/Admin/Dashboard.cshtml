@@ -21,11 +21,16 @@
 
 @if (User.Identity?.IsAuthenticated == true)
 {
-    <p class="text-success">Willkommen, @User.Identity.Name</p>
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle"></i> Willkommen, <strong>@User.Identity.Name</strong>
+    </div>
 }
 else
 {
-    <p class="text-muted"><em>Du bist nicht eingeloggt.</em></p>
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> Sie sind nicht angemeldet. 
+        <a asp-page="/Account/Login" asp-route-returnUrl="/Admin/Dashboard" class="alert-link">Jetzt anmelden</a>
+    </div>
 }
 
 <!-- Anwendungsübersicht -->

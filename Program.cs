@@ -46,7 +46,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(cs);
 });
 
-// 🔐 Identity-Konfiguration (für Daten/Token weiterverwendet, aber nicht für Windows-Login)
+// 🔐 Identity-Konfiguration mit Cookie-basiertem Login
 builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     {
         options.SignIn.RequireConfirmedEmail = false;
@@ -60,8 +60,15 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-// KEINE Cookie-Login-Umleitung für Windows-Auth
-// builder.Services.ConfigureApplicationCookie(...);
+// Cookie-Konfiguration für Login
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.LogoutPath = "/Account/Logout";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+});
 
 // 📋 HTTP-Logging
 builder.Services.AddHttpLogging(logging =>
@@ -87,20 +94,8 @@ if (!builder.Environment.IsDevelopment())
 // ⚙️ HTTPS-Redirect
 var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
 
-// 🔐 Authentication: Windows (Produktion) oder Identity (Entwicklung)
-if (!builder.Environment.IsDevelopment())
-{
-    // Production: Windows Authentication für IIS zusätzlich zu Identity
-    builder.Services.AddAuthentication()
-        .AddNegotiate();
-    
-    // Windows Auth als primäres Schema in Production
-    builder.Services.Configure<AuthenticationOptions>(options =>
-    {
-        options.DefaultAuthenticateScheme = NegotiateDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = NegotiateDefaults.AuthenticationScheme;
-    });
-}
+// 🔐 Authentication: Cookie-basiertes Identity Login
+// (Windows Authentication entfernt, da nur Cookie-Login benötigt wird)
 
 // 🔐 Authorization Policies
 builder.Services.AddAuthorization(options =>
@@ -116,14 +111,7 @@ builder.Services.AddAuthorization(options =>
     // User-Policy: Alle authentifizierten Benutzer (nur in Produktion)
     options.AddPolicy("AuthenticatedUser", policy =>
         policy.RequireAuthenticatedUser());
-    
-    // Standard: In Development keine Auth-Zwang, in Production schon
-    if (!builder.Environment.IsDevelopment())
-    {
-        options.FallbackPolicy = new AuthorizationPolicyBuilder()
-            .RequireAuthenticatedUser()
-            .Build();
-    }
+    // Keine FallbackPolicy, damit anonyme Benutzer zugelassen werden
 });
 
 // Razor Pages: Erweiterte Autorisierung
@@ -131,13 +119,16 @@ builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
 {
     // Admin-Bereich nur für Admins
     opts.Conventions.AuthorizeFolder("/Admin", "AdminOnly");
+
+    // Startseite und Privacy sind öffentlich (anonym)
+    opts.Conventions.AllowAnonymousToPage("/Index");
+    opts.Conventions.AllowAnonymousToPage("/Privacy");
     
-    // In Production: Authentifizierung erforderlich
-    if (!builder.Environment.IsDevelopment())
-    {
-        opts.Conventions.AuthorizePage("/Index", "AuthenticatedUser");
-        opts.Conventions.AuthorizePage("/Privacy", "AuthenticatedUser");
-    }
+    // Login/Logout/Register sind öffentlich
+    opts.Conventions.AllowAnonymousToPage("/Account/Login");
+    opts.Conventions.AllowAnonymousToPage("/Account/Register");
+    opts.Conventions.AllowAnonymousToPage("/Account/Logout");
+    opts.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
 });
 
 var app = builder.Build();
