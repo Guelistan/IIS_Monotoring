@@ -1,34 +1,249 @@
 ﻿@page
 @model IndexModel
-@using AppManager.Pages.Account
+@{
+    ViewData["Title"] = "Dashboard - AppManager";
+}
 
-
-<h1>Welcome to AppManager</h1>
-<h2>Alle Anwendungen</h2>
-
-<div class="row">
-    @foreach (var app in Model.Applications)
-    {
-        <div class="col-md-4">
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h4 class="card-title">@app.Name</h4>
-                    <p>Status:
-                        @if (app.IsStarted)
-                        {
-                            <span style="color:green;">🟢 Gestartet</span>
-                        }
-                        else
-                        {
-                            <span style="color:red;">🔴 Gestoppt</span>
-                        }
-                    </p>
-                    @if (app.RestartRequired)
+<div class="container-fluid">
+    <!-- Header mit Benutzer-Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="fas fa-tachometer-alt"></i> AppManager Dashboard</h1>
+                    @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <p style="color:rgb(255, 123, 0);">⚠️ Neustart erforderlich</p>
+                        <p class="text-muted">Willkommen, <strong>@Model.CurrentUsername</strong></p>
+                    }
+                    else
+                    {
+                        <p class="text-warning">
+                            <i class="bi bi-exclamation-triangle"></i> Sie sind nicht angemeldet. 
+                            <a asp-page="/Account/Login" asp-route-returnUrl="/" class="btn btn-sm btn-primary ms-2">
+                                <i class="bi bi-box-arrow-in-right"></i> Jetzt anmelden
+                            </a>
+                        </p>
+                    }
+                </div>
+                <div class="text-end">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <div class="badge-container">
+                            @foreach (var role in Model.UserRoles)
+                            {
+                                <span class="badge bg-@(role == "Admin" || role == "SuperAdmin" ? "danger" : role == "AppOwner" ? "warning" : "secondary") me-1">
+                                    @role
+                                </span>
+                            }
+                        </div>
+                        <a asp-page="/Account/Logout" class="btn btn-sm btn-outline-secondary mt-2">
+                            <i class="bi bi-box-arrow-right"></i> Abmelden
+                        </a>
                     }
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- System-Performance -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-server"></i> System-Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h3 class="text-@(Model.SystemCpuUsage > 80 ? "danger" : Model.SystemCpuUsage > 60 ? "warning" : "success")">
+                                    @Model.SystemCpuUsage.ToString("F1")%
+                                </h3>
+                                <p class="text-muted">CPU-Auslastung</p>
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-@(Model.SystemCpuUsage > 80 ? "danger" : Model.SystemCpuUsage > 60 ? "warning" : "success")" 
+                                     role="progressbar" 
+                                     style="width: @Model.SystemCpuUsage%"
+                                     aria-valuenow="@Model.SystemCpuUsage" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    @Model.SystemCpuUsage.ToString("F1")%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin-Bereich -->
+    @if (Model.IsAdmin)
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-user-shield"></i> Admin-Funktionen</h5>
+                    <a href="/Admin/Dashboard" class="btn btn-primary me-2">
+                        <i class="fas fa-cogs"></i> Admin-Dashboard
+                    </a>
+                    <a href="/Admin/ApplicationManagement" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-apps"></i> App-Verwaltung
+                    </a>
+                    <a href="/Admin/Users" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-users"></i> Benutzer-Verwaltung
+                    </a>
+                    <a href="/Admin/AppOwnership" class="btn btn-outline-warning">
+                        <i class="fas fa-key"></i> App-Berechtigungen
+                    </a>
+                </div>
+            </div>
+        </div>
     }
+
+    <!-- Anwendungen -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-apps"></i> Anwendungen (@Model.Applications.Count)</h5>
+                    <div>
+                        <span class="badge bg-success">@Model.Applications.Count(a => a.IsStarted) Aktiv</span>
+                        <span class="badge bg-secondary">@Model.Applications.Count(a => !a.IsStarted) Gestoppt</span>
+                        @if (Model.Applications.Any(a => a.RestartRequired))
+                        {
+                            <span class="badge bg-warning">@Model.Applications.Count(a => a.RestartRequired) Neustart erforderlich</span>
+                        }
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @foreach (var app in Model.Applications)
+                        {
+                            <div class="col-md-4 col-lg-3 mb-3">
+                                <div class="card h-100 @(app.Tags == "Owned" ? "border-warning" : "")">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="card-title">@app.Name</h6>
+                                            @if (app.Tags == "Owned")
+                                            {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-key"></i> Owned
+                                                </span>
+                                            }
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            @if (app.IsStarted)
+                                            {
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-play"></i> Gestartet
+                                                </span>
+                                                @if (app.ProcessId.HasValue && Model.AppPerformance.ContainsKey(app.ProcessId.Value))
+                                                {
+                                                    var perf = Model.AppPerformance[app.ProcessId.Value];
+                                                    <small class="text-muted d-block mt-1">
+                                                        CPU: @perf.CpuUsage.ToString("F1")% | 
+                                                        RAM: @perf.MemoryUsageMB.ToString("F0") MB
+                                                    </small>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-stop"></i> Gestoppt
+                                                </span>
+                                            }
+                                        </div>
+
+                                        @if (app.RestartRequired)
+                                        {
+                                            <div class="alert alert-warning alert-sm py-1 px-2 mb-2">
+                                                <small><i class="fas fa-exclamation-triangle"></i> Neustart erforderlich</small>
+                                            </div>
+                                        }
+
+                                        @if (app.IsIISApplication)
+                                        {
+                                            <small class="text-info">
+                                                <i class="fas fa-server"></i> IIS: @app.IISAppPoolName
+                                            </small>
+                                        }
+                                        
+                                        <!-- Action-Buttons für berechtigte Benutzer -->
+                                        @if (Model.IsAdmin || (Model.IsAppOwner && app.Tags == "Owned"))
+                                        {
+                                            <div class="mt-2">
+                                                @if (app.IsStarted)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-danger me-1" 
+                                                            onclick="stopApp('@app.Id')">
+                                                        <i class="fas fa-stop"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-warning" 
+                                                            onclick="restartApp('@app.Id')">
+                                                        <i class="fas fa-redo"></i>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-success" 
+                                                            onclick="startApp('@app.Id')">
+                                                        <i class="fas fa-play"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Action Scripts -->
+<script>
+function startApp(appId) {
+    if (confirm('Möchten Sie diese Anwendung starten?')) {
+        window.location.href = '/Admin/Dashboard?handler=Start&id=' + appId;
+    }
+}
+
+function stopApp(appId) {
+    if (confirm('Möchten Sie diese Anwendung stoppen?')) {
+        window.location.href = '/Admin/Dashboard?handler=Stop&id=' + appId;
+    }
+}
+
+function restartApp(appId) {
+    if (confirm('Möchten Sie diese Anwendung neu starten?')) {
+        window.location.href = '/Admin/Dashboard?handler=Restart&id=' + appId;
+    }
+}
+
+// Auto-Refresh alle 30 Sekunden
+setTimeout(function() {
+    location.reload();
+}, 30000);
+</script>
+
+<style>
+.alert-sm {
+    font-size: 0.875rem;
+}
+
+.badge-container .badge {
+    font-size: 0.75rem;
+}
+
+.card.border-warning {
+    border-width: 2px !important;
+}
+</style>

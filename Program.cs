@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpLogging;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,20 +17,15 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Server.IISIntegration;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
-using System.Security.Principal;
-using System.DirectoryServices.AccountManagement;
-using AppUser = AppManager.Data.AppUser;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
-// builder.WebHost.ConfigureKestrel(options => {
-//     throw new InvalidOperationException("Kestrel ist deaktiviert. Bitte nur über IIS/IIS Express starten.");
-// });
 
-builder.WebHost.UseIIS();
+// 📧 Fake E-Mail-Sender für Entwicklung
+builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
 
-//  Datenbank: SQLite (Datei-basiert)
+// 📦 Datenbank: SQLite (Datei-basiert)
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     var cs = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -53,55 +46,29 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(cs);
 });
 
-// 🔐 Identity-Konfiguration für Windows-Auth
-builder.Services.AddIdentityCore<AppManager.Data.AppUser>(options =>
+// 🔐 Identity-Konfiguration mit Cookie-basiertem Login
+builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = false;
+        options.SignIn.RequireConfirmedEmail = false;
+        options.User.RequireUniqueEmail = false;
         options.Password.RequireDigit = false;
-        options.Password.RequireLowercase = false;
-        options.Password.RequireUppercase = false;
+        options.Password.RequiredLength = 3;
         options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireLowercase = false;
     })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>();
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
 
-// Windows-Authentifizierung konfigurieren
-builder.Services.AddAuthentication(options => {
-    options.DefaultScheme = "Windows";
-    options.DefaultAuthenticateScheme = "Windows";
-    options.DefaultChallengeScheme = "Windows";
-})
-.AddNegotiate("Windows", options => {
-    options.Events = new NegotiateEvents {
-        OnAuthenticated = context => {
-            if (context.Principal?.Identity is WindowsIdentity winIdentity)
-            {
-                var claims = new List<System.Security.Claims.Claim>
-                {
-                    new System.Security.Claims.Claim("windows_username", winIdentity.Name),
-                    new System.Security.Claims.Claim("windows_sid", winIdentity.User?.Value ?? "unknown")
-                };
-                var identity = new System.Security.Claims.ClaimsIdentity(claims, "Windows");
-                context.Principal.AddIdentity(identity);
-            }
-            return Task.CompletedTask;
-        }
-    };
+// Cookie-Konfiguration für Login
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.LogoutPath = "/Account/Logout";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
 });
-
-// Claims Transformation für zusätzliche Identity-Integration
-// builder.Services.AddScoped<IClaimsTransformation, WindowsUserClaimsTransformation>(); // ❌ Temporär auskommentiert
-
-// 📧 Fake E-Mail-Sender für Entwicklung
-// builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>(); // ❌ Temporär auskommentiert
-
-// HTTP Context Accessor für Service-basierte User-Erkennung
-builder.Services.AddHttpContextAccessor();
-
-// DI
-builder.Services.AddScoped<ProgramManagerService>();
-builder.Services.AddScoped<IISService>();
-builder.Services.AddScoped<AppService>();
 
 // 📋 HTTP-Logging
 builder.Services.AddHttpLogging(logging =>
@@ -109,42 +76,60 @@ builder.Services.AddHttpLogging(logging =>
     logging.LoggingFields = HttpLoggingFields.All;
 });
 
-// ⚙️ HTTPS-Redirect (konfigurierbar)
-// Default: disabled to avoid unerwartete Umleitungen auf WTS/Terminalserver.
-// Setze in appsettings.Production.json oder Umgebung: "EnforceHttpsRedirect": true
-var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? false;
+// DI
+builder.Services.AddScoped<ProgramManagerService>();
+builder.Services.AddScoped<IISService>();
+builder.Services.AddScoped<AppService>();
+builder.Services.AddScoped<AppManager.AppAuthorizationService>();
+builder.Services.AddScoped<CpuMonitoringService>();
+builder.Services.AddScoped<WindowsUserClaimsTransformation>();
+builder.Services.AddScoped<IClaimsTransformation, WindowsUserClaimsTransformation>();
 
+// 🌐 URLs für Non-Development-Umgebung (bei IIS egal, wird ignoriert)
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://localhost:5130", "https://localhost:5007");
+}
+
+// ⚙️ HTTPS-Redirect
+var enforceHttps = builder.Configuration.GetValue<bool?>("EnforceHttpsRedirect") ?? (!builder.Environment.IsDevelopment());
+
+// 🔐 Authentication: Cookie-basiertes Identity Login
+// (Windows Authentication entfernt, da nur Cookie-Login benötigt wird)
+
+// 🔐 Authorization Policies
 builder.Services.AddAuthorization(options =>
 {
-    // Grundlegende Windows-Auth Policy
-    var defaultPolicy = new AuthorizationPolicyBuilder()
-        .AddAuthenticationSchemes("Windows")
-        .RequireAuthenticatedUser()
-        .Build();
-    
-    options.DefaultPolicy = defaultPolicy;
-    options.FallbackPolicy = defaultPolicy;
-
-    // Admin-Policy
-    options.AddPolicy("Admin", policy =>
+    // Admin-Policy: Nur SuperAdmin und Admin
+    options.AddPolicy("AdminOnly", policy =>
         policy.RequireRole("Admin", "SuperAdmin"));
+    
+    // AppOwner-Policy: Admin, SuperAdmin oder AppOwner
+    options.AddPolicy("AppOwnerOrAdmin", policy =>
+        policy.RequireRole("Admin", "SuperAdmin", "AppOwner"));
+    
+    // User-Policy: Alle authentifizierten Benutzer (nur in Produktion)
+    options.AddPolicy("AuthenticatedUser", policy =>
+        policy.RequireAuthenticatedUser());
+    // Keine FallbackPolicy, damit anonyme Benutzer zugelassen werden
 });
 
-// HSTS service registration (options configured but only applied when enforceHttps==true)
-builder.Services.AddHsts(options =>
-{
-    options.MaxAge = TimeSpan.FromDays(365);
-    options.IncludeSubDomains = false;
-    options.Preload = false;
-});
-
-// Razor Pages: /Admin schützen
+// Razor Pages: Erweiterte Autorisierung
 builder.Services.AddRazorPages().AddRazorPagesOptions(opts =>
 {
-    opts.Conventions.AuthorizeFolder("/Admin");
-});
+    // Admin-Bereich nur für Admins
+    opts.Conventions.AuthorizeFolder("/Admin", "AdminOnly");
 
-// Windows Authentication - keine Cookie-Konfiguration notwendig
+    // Startseite und Privacy sind öffentlich (anonym)
+    opts.Conventions.AllowAnonymousToPage("/Index");
+    opts.Conventions.AllowAnonymousToPage("/Privacy");
+    
+    // Login/Logout/Register sind öffentlich
+    opts.Conventions.AllowAnonymousToPage("/Account/Login");
+    opts.Conventions.AllowAnonymousToPage("/Account/Register");
+    opts.Conventions.AllowAnonymousToPage("/Account/Logout");
+    opts.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
+});
 
 var app = builder.Build();
 
@@ -169,22 +154,15 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    // HSTS: Only enable if explicit configuration requests HTTPS enforcement.
     if (enforceHttps)
     {
         app.UseHsts();
     }
 }
-
-// HTTPS-Redirect: only when configured/enabled. Default remains false for WTS.
-
 if (enforceHttps)
 {
     app.UseHttpsRedirection();
 }
-
-app.UseStaticFiles();
-
 
 // 🧪 Initiales Datenbank-Seeding (unverändert)
 using (var scope = app.Services.CreateScope())
@@ -301,8 +279,11 @@ using (var scope = app.Services.CreateScope())
 app.UseStaticFiles();
 app.UseRouting();
 app.UseHttpLogging();
-app.UseAuthentication(); // Aktiviert Auth-Middleware
+
+// 🔐 Authentication & Authorization Pipeline
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapRazorPages();
 app.MapControllers();
 

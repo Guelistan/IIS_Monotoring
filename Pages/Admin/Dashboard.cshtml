@@ -6,117 +6,90 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>📋 App Dashboard</h2>
 
-    <!-- Quick Actions - Management Links -->
-    <div class="btn-group" role="group">
-        <a class="btn btn-outline-success" asp-page="/Admin/ApplicationManagement" title="Windows Apps verwalten">
-            � Applications
-        </a>
-        <a class="btn btn-outline-primary" asp-page="/IISManager" title="IIS AppPools verwalten">
-            � IIS AppPools
-        </a>
-        @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
-        {
-            <a class="btn btn-outline-warning" asp-page="/Admin/AppOwnership">� App-Owner</a>
+    <!-- Admin Quick Actions -->
+    @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+    {
+        <div class="btn-group" role="group">
+            <a class="btn btn-outline-primary" asp-page="/Admin/Users">👥 Users</a>
+            <a class="btn btn-outline-success" asp-page="/Admin/AppOwnership">🔐 App-Owner</a>
+            <a class="btn btn-outline-warning" asp-page="/Admin/ApplicationManagement">📱 Apps</a>
             <a class="btn btn-outline-info" asp-page="/Admin/History">📜 History</a>
-            <!-- Note: Remove Windows Apps capability intentionally disabled to avoid accidental DB deletions -->
-        }
-    </div>
+            <a class="btn btn-outline-secondary" asp-page="/Admin/Diagrams">📊 Diagramme</a>
+        </div>
+    }
 </div>
 
 @if (User.Identity?.IsAuthenticated == true)
 {
-    <div class="alert alert-success" role="alert">
-        <h4 class="alert-heading">👋 Willkommen, @User.Identity.Name!</h4>
-        <p class="mb-0">
-            Hier siehst du eine <strong>Übersicht</strong> deiner Apps. 
-            Für <strong>Verwaltungsaktionen</strong> nutze die Buttons oben.
-        </p>
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle"></i> Willkommen, <strong>@User.Identity.Name</strong>
     </div>
 }
 else
 {
-    <div class="alert alert-warning" role="alert">
-        <p class="mb-0"><em>Du bist nicht eingeloggt.</em></p>
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> Sie sind nicht angemeldet. 
+        <a asp-page="/Account/Login" asp-route-returnUrl="/Admin/Dashboard" class="alert-link">Jetzt anmelden</a>
     </div>
 }
 
-<!-- 📊 Anwendungsübersicht (ReadOnly) -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="mb-0">� Anwendungsübersicht</h3>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>🏷️ Name</th>
-                                <th>📊 Status</th>
-                                <th>⚠️ Neustart erforderlich</th>
-                                <th>🔧 Verwaltung</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var app in Model.Applications)
-                            {
-                                <tr>
-                                    <td>
-                                        <strong>@app.Name</strong>
-                                        @if (app.IsIISApplication)
-                                        {
-                                            <br><span class="badge bg-info">IIS AppPool</span>
-                                        }
-                                        else
-                                        {
-                                            <br><span class="badge bg-secondary">Windows App</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        @if (app.IsStarted)
-                                        {
-                                            <span class="badge bg-success">✅ Läuft</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-danger">❌ Gestoppt</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        @{
-                                            var restartStatus =
-                                            (Model.RestartRequiredMap.ContainsKey(app.Id) && Model.RestartRequiredMap[app.Id])
-                                            ? "<span class='badge bg-warning'>⚠️ Ja (Historie)</span>"
-                                            : app.RestartRequired
-                                            ? "<span class='badge bg-warning'>⚠️ Ja (manuell)</span>"
-                                            : "<span class='badge bg-success'>✅ Nein</span>";
-                                        }
-                                        @Html.Raw(restartStatus)
-                                    </td>
-                                    <td>
-                                        @if (app.IsIISApplication)
-                                        {
-                                            <a asp-page="/IISManager" class="btn btn-primary btn-sm">
-                                                🚀 IIS Manager
-                                            </a>
-                                        }
-                                        else
-                                        {
-                                            <a asp-page="/Admin/ApplicationManagement" class="btn btn-secondary btn-sm">
-                                                📱 App Manager
-                                            </a>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Anwendungsübersicht -->
+<h3 class="mt-4">📱 Anwendungsübersicht</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Neustart erforderlich</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var app in Model.Applications)
+        {
+            <tr>
+                <td>@app.Name</td>
+                <td>
+                    @(app.IsStarted ?
+                                    Html.Raw("<span style='color:green;'>Gestartet</span>") :
+                                    Html.Raw("<span style='color:red;'>Gestoppt</span>"))
+                </td>
+                <td>
+                    @{
+                        var restartStatus =
+                        (Model.RestartRequiredMap.ContainsKey(app.Id) && Model.RestartRequiredMap[app.Id])
+                        ? "<span style='color:orange;'>⚠️ Ja (Historie)</span>"
+                        : app.RestartRequired
+                        ? "<span style='color:orange;'>⚠️ Ja (manuell)</span>"
+                        : "<span style='color:green;'>✅ Nein</span>";
+                    }
+                    @Html.Raw(restartStatus)
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <form method="post" asp-page-handler="Start" style="display:inline;">
+                            <input type="hidden" name="appId" value="@app.Id" />
+                            <input type="hidden" name="customReason" value="Dashboard-Start" />
+                            <button type="submit" class="btn btn-success btn-sm">▶️ Start</button>
+                        </form>
+
+                        <form method="post" asp-page-handler="Stop" style="display:inline;">
+                            <input type="hidden" name="appId" value="@app.Id" />
+                            <input type="hidden" name="customReason" value="Dashboard-Stop" />
+                            <button type="submit" class="btn btn-warning btn-sm">⏹️ Stop</button>
+                        </form>
+
+                        <form method="post" asp-page-handler="Restart" style="display:inline;">
+                            <input type="hidden" name="appId" value="@app.Id" />
+                            <input type="hidden" name="customReason" value="Dashboard-Restart" />
+                            <button type="submit" class="btn btn-info btn-sm">🔄 Restart</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
 
 <!-- Start-Historie außerhalb der App-Tabelle -->
 <h3 class="mt-5">🕓 Start-Historie</h3>

@@ -7,14 +7,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-  <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
+    <PackageReference Include="System.DirectoryServices.AccountManagement" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="8.0.11" />
+<<<<<<< HEAD
   <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
   <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <PrivateAssets>al
       l</PrivateAssets>
+=======
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <PrivateAssets>all</PrivateAssets>
+>>>>>>> 1e808df
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.11">

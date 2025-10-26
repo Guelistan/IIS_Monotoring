@@ -125,5 +125,15 @@ http://localhost:85
 
 ===================================================
 © 2025 AppManager - IIS Monitoring System
+<<<<<<< HEAD
 Entwickelt fur sichere und effiziente IIS Verwaltung
 ===================================================
+=======
+Entwickelt für sichere und effiziente IIS Verwaltung
+==================================================
+Im Verzeichnis Appmanager und allen Unterordnern Leserechte für den Anwendungspool-Benutzer hinzufügen
+Beispiel (PowerShell als Administrator):
+
+
+icacls "c:\guelistan\Dersler\Appmanager" /grant "IIS_IUSRS:(OI)(CI)RX" /T
+>>>>>>> 1e808df
